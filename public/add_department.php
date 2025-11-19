@@ -1,38 +1,27 @@
 <?php
+// add_department.php
 require_once __DIR__ . '/../config/auth.php';
 require_login();
 if(current_user()['role'] !== 'admin') { echo "Acceso denegado"; exit; }
 
-if ($_POST) {
-    $name = $conn->real_escape_string($_POST["name"]);
-    $contact = $conn->real_escape_string($_POST["contact"]);
-    $conn->query("INSERT INTO departments (name, contact) VALUES ('$name', '$contact')");
-    header("Location: departments.php");
-    exit;
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $name = trim($_POST["name"] ?? '');
+    if($name === ''){
+        // podrías redirigir con mensaje flash; aquí simple exit
+        header("Location: departments.php");
+        exit;
+    }
+    // Prepared statement
+    $stmt = $conn->prepare("INSERT INTO departments (name) VALUES (?)");
+    $stmt->bind_param("s", $name);
+    if($stmt->execute()){
+        header("Location: departments.php");
+        exit;
+    } else {
+        // fallback: mostrar error (útil si algo falla)
+        echo "Error al insertar: " . htmlspecialchars($conn->error);
+        exit;
+    }
 }
-?>
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Agregar Departamento</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-<?php include("navbar.php"); ?>
-
-<div class="container">
-    <h2>Agregar Departamento</h2>
-
-    <form method="POST">
-        <label>Nombre:</label>
-        <input name="name" class="form-control" required>
-
-        <label>Contacto:</label>
-        <input name="contact" class="form-control">
-
-        <br>
-        <button class="btn btn-primary">Guardar</button>
-    </form>
-</div>
-</body>
-</html>
+header("Location: departments.php");
+exit;
