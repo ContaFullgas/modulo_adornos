@@ -1,13 +1,14 @@
 <?php
-// add_item.php (actualizado)
+// add_item.php (con redirect a items.php después de insertar)
 require_once __DIR__ . '/../config/auth.php';
 require_login();
 if(current_user()['role'] !== 'admin') { echo "Acceso denegado"; exit; }
 
 $err = '';
+// $success ya no es necesario para redirigir, lo dejamos por si quieres mostrar algo si no redirigimos
 $success = '';
 
-if ($_POST) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Recoger y sanitizar
     $code = isset($_POST['code']) ? strtoupper(trim($_POST['code'])) : '';
     $desc = $conn->real_escape_string($_POST["description"] ?? '');
@@ -20,11 +21,11 @@ if ($_POST) {
 
     // Check unicidad
     if(!$err) {
-        $stmt = $conn->prepare("SELECT id FROM items WHERE code = ?");
-        $stmt->bind_param("s", $code);
-        $stmt->execute();
-        $res = $stmt->get_result();
-        if($res->fetch_assoc()) {
+        $stmt_check = $conn->prepare("SELECT id FROM items WHERE code = ?");
+        $stmt_check->bind_param("s", $code);
+        $stmt_check->execute();
+        $res_check = $stmt_check->get_result();
+        if($res_check->fetch_assoc()) {
             $err = "El código ya existe. Debes usar un código/folio irrepetible.";
         }
     }
@@ -34,7 +35,6 @@ if ($_POST) {
     if(!$err && !empty($_FILES["image"]["name"])) {
         if(!is_dir(__DIR__ . "/uploads")) mkdir(__DIR__ . "/uploads", 0755, true);
         $origName = basename($_FILES["image"]["name"]);
-        // Sanear nombre y evitar colisiones: timestamp + sanitized name
         $safe = preg_replace('/[^A-Za-z0-9_.-]/', '_', $origName);
         $image_name = time() . "_" . $safe;
         $target = __DIR__ . "/uploads/" . $image_name;
@@ -45,17 +45,15 @@ if ($_POST) {
 
     // Insertar en DB
     if(!$err) {
-        // Usamos prepared statement
         $stmt = $conn->prepare("INSERT INTO items (code, description, total_quantity, available_quantity, image) VALUES (?, ?, ?, ?, ?)");
         $avail = $total;
         $stmt->bind_param("ssiis", $code, $desc, $total, $avail, $image_name);
         if($stmt->execute()) {
-            $success = "Adorno agregado correctamente con código {$code}.";
-            // limpiar formulario si quieres:
-            $_POST = [];
+            // redirigir a la lista actualizada
+            header("Location: items.php");
+            exit;
         } else {
             $err = "Error al guardar en la base de datos: " . $conn->error;
-            // si falló y subimos imagen, puedes eliminarla si quieres
             if($image_name && file_exists(__DIR__ . "/uploads/" . $image_name)) {
                 @unlink(__DIR__ . "/uploads/" . $image_name);
             }
@@ -81,9 +79,6 @@ if ($_POST) {
 
     <?php if($err): ?>
       <div class="alert alert-danger"><?= htmlspecialchars($err) ?></div>
-    <?php endif; ?>
-    <?php if($success): ?>
-      <div class="alert alert-success"><?= htmlspecialchars($success) ?></div>
     <?php endif; ?>
 
     <form method="POST" enctype="multipart/form-data" id="addForm">
@@ -120,27 +115,31 @@ if ($_POST) {
 // Imagen preview
 const imageInput = document.getElementById('imageInput');
 const preview = document.getElementById('preview');
-imageInput.addEventListener('change', function(e){
-    const file = this.files[0];
-    if(!file) { preview.style.display = 'none'; preview.src = '#'; return; }
-    if(!file.type.startsWith('image/')) {
-        preview.style.display = 'none';
-        preview.src = '#';
-        return;
-    }
-    const reader = new FileReader();
-    reader.onload = function(ev) {
-        preview.src = ev.target.result;
-        preview.style.display = 'block';
-    };
-    reader.readAsDataURL(file);
-});
+if(imageInput){
+  imageInput.addEventListener('change', function(e){
+      const file = this.files[0];
+      if(!file) { preview.style.display = 'none'; preview.src = '#'; return; }
+      if(!file.type.startsWith('image/')) {
+          preview.style.display = 'none';
+          preview.src = '#';
+          return;
+      }
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+          preview.src = ev.target.result;
+          preview.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+  });
+}
 
 // Opcional: forzar uppercase en código, quitar espacios
 const codeInput = document.getElementById('code');
-codeInput.addEventListener('input', function(){ 
-    this.value = this.value.toUpperCase().replace(/\s+/g, '');
-});
+if(codeInput){
+  codeInput.addEventListener('input', function(){ 
+      this.value = this.value.toUpperCase().replace(/\s+/g, '');
+  });
+}
 </script>
 </body>
 </html>
