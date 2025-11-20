@@ -50,7 +50,7 @@ require_login();
               <img src="uploads/<?= htmlspecialchars($row['image']) ?>" class="card-img-top" alt="">
             <?php endif; ?>
             <div class="card-body d-flex flex-column">
-              <h5 class="card-title"><?= $code ?></h5>
+              <h5 class="card-title"><strong>Código: </strong><?= $code ?></h5>
               <p class="card-text"><?= nl2br($desc) ?></p>
               <p class="mt-auto"><strong>Disponibles:</strong> <?= $avail ?></p>
 
