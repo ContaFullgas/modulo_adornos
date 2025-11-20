@@ -10,6 +10,7 @@ $user = is_logged_in() ? current_user() : null;
       <ul class="navbar-nav me-auto">
         <li class="nav-item"><a class="nav-link" href="items.php">Adornos</a></li>
         <li class="nav-item"><a class="nav-link" href="departments.php">Departamentos</a></li>
+        <li class="nav-item"><a class="nav-link" href="celebrations.php">Celebraciones</a></li>
         <!-- <li class="nav-item"><a class="nav-link" href="reserve.php">Reservar</a></li> -->
         <li class="nav-item"><a class="nav-link" href="reservations.php">Reservas</a></li>
         <?php if($user && $user['role'] === 'admin'): ?>
