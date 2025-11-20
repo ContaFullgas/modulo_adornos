@@ -9,7 +9,7 @@ require_login();
     <title>Adornos</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-      #add_preview { max-width: 320px; max-height: 320px; display:block; margin-top:.5rem; }
+      #add_preview, #edit_preview { max-width: 320px; max-height: 320px; display:block; margin-top:.5rem; }
     </style>
 </head>
 <body>
@@ -43,32 +43,60 @@ require_login();
                 $code = htmlspecialchars($row['code'] ?? $row['id']);
                 $desc = htmlspecialchars($row['description']);
                 $avail = (int)$row['available_quantity'];
+                $total = (int)$row['total_quantity'];
+                $image = $row['image'];
         ?>
         <div class="col-md-4 mb-3">
           <div class="card h-100 shadow-sm">
-            <?php if(!empty($row['image'])): ?>
-              <img src="uploads/<?= htmlspecialchars($row['image']) ?>" class="card-img-top" alt="">
+            <?php if(!empty($image)): ?>
+              <img src="uploads/<?= htmlspecialchars($image) ?>" class="card-img-top" alt="">
             <?php endif; ?>
             <div class="card-body d-flex flex-column">
               <h5 class="card-title"><strong>Código: </strong><?= $code ?></h5>
               <p class="card-text"><?= nl2br($desc) ?></p>
+              <p class="mb-1"><strong>Total:</strong> <?= $total ?></p>
               <p class="mt-auto"><strong>Disponibles:</strong> <?= $avail ?></p>
 
-              <!-- Botón reservar (si hay disponibles) -->
-              <?php if($avail > 0): ?>
-                <button
-                  class="btn btn-primary mt-2 btn-reserve"
-                  data-bs-toggle="modal"
-                  data-bs-target="#reserveModal"
-                  data-itemid="<?= $item_id ?>"
-                  data-code="<?= $code ?>"
-                  data-available="<?= $avail ?>"
-                >
-                  Reservar
-                </button>
-              <?php else: ?>
-                <button class="btn btn-secondary mt-2" disabled>Agotado</button>
-              <?php endif; ?>
+              <div class="mt-3">
+                <!-- Reservar -->
+                <?php if($avail > 0): ?>
+                  <button
+                    class="btn btn-primary btn-reserve"
+                    data-bs-toggle="modal"
+                    data-bs-target="#reserveModal"
+                    data-itemid="<?= $item_id ?>"
+                    data-code="<?= $code ?>"
+                    data-available="<?= $avail ?>"
+                  >
+                    Reservar
+                  </button>
+                <?php else: ?>
+                  <button class="btn btn-secondary" disabled>Agotado</button>
+                <?php endif; ?>
+
+                <?php if(current_user()['role'] === 'admin'): ?>
+                  <!-- Editar -->
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-warning ms-2 btn-edit"
+                    data-bs-toggle="modal"
+                    data-bs-target="#editItemModal"
+                    data-id="<?= $item_id ?>"
+                    data-code="<?= $code ?>"
+                    data-description="<?= htmlspecialchars($row['description'], ENT_QUOTES) ?>"
+                    data-total="<?= $total ?>"
+                    data-available="<?= $avail ?>"
+                    data-image="<?= htmlspecialchars($image, ENT_QUOTES) ?>"
+                  >Editar</button>
+
+                  <!-- Eliminar (form POST) -->
+                  <form method="POST" action="item_action.php?action=delete" class="d-inline-block ms-2" onsubmit="return confirm('Eliminar adorno <?= addslashes($code) ?>?');">
+                      <input type="hidden" name="id" value="<?= $item_id ?>">
+                      <button class="btn btn-sm btn-danger" type="submit">Eliminar</button>
+                  </form>
+                <?php endif; ?>
+              </div>
+
             </div>
           </div>
         </div>
@@ -115,6 +143,52 @@ require_login();
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <button type="submit" class="btn btn-success">Agregar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ========== Modal: Editar Adorno ========== -->
+<div class="modal fade" id="editItemModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form method="POST" action="item_action.php?action=edit" enctype="multipart/form-data" class="modal-content" id="editItemForm">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar Adorno</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="id" id="edit_id">
+
+        <div class="mb-3">
+          <label class="form-label">Código</label>
+          <input name="code" id="edit_code" class="form-control" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Cantidad total</label>
+          <input type="number" name="total_quantity" id="edit_total" class="form-control" min="1" required>
+          <div class="form-text" id="edit_reserved_text"></div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Foto actual</label>
+          <div id="current_image_container">
+            <img id="edit_preview" src="#" alt="Preview" style="display:none;">
+          </div>
+          <div class="form-text">Si subes una nueva imagen, la anterior será reemplazada.</div>
+          <input type="hidden" name="existing_image" id="edit_existing_image">
+          <input type="file" name="image" id="edit_image" accept="image/*" class="form-control mt-2">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Descripción (opcional)</label>
+          <textarea name="description" id="edit_description" class="form-control"></textarea>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar cambios</button>
       </div>
     </form>
   </div>
@@ -186,7 +260,7 @@ if(addImage){
 // uppercase code & trim spaces
 const addCode = document.getElementById('add_code');
 if(addCode){
-  addCode.addEventListener('input', ()=> addCode.value = addCode.value.toUpperCase().replace(/\s+/g,''));
+  addCode.addEventListener('input', ()=> addCode.value = addCode.value.toUpperCase().replace(/\s+/g,'')); 
 }
 
 // Simple client-side validation before submit
@@ -199,6 +273,56 @@ document.getElementById('addItemForm').addEventListener('submit', function(e){
   }
   return true;
 });
+
+// ----- Edit modal: rellenar campos y preview -----
+var editModal = document.getElementById('editItemModal');
+editModal.addEventListener('show.bs.modal', function (event) {
+  var button = event.relatedTarget;
+  var id = button.getAttribute('data-id');
+  var code = button.getAttribute('data-code');
+  var description = button.getAttribute('data-description') || '';
+  var total = button.getAttribute('data-total') || '1';
+  var available = button.getAttribute('data-available') || '0';
+  var image = button.getAttribute('data-image') || '';
+
+  document.getElementById('edit_id').value = id;
+  document.getElementById('edit_code').value = code;
+  document.getElementById('edit_total').value = total;
+  document.getElementById('edit_description').value = description;
+  document.getElementById('edit_existing_image').value = image;
+
+  // Mostrar preview de imagen actual si existe
+  var editPreview = document.getElementById('edit_preview');
+  if(image){
+    editPreview.src = 'uploads/' + image;
+    editPreview.style.display = 'block';
+  } else {
+    editPreview.src = '#';
+    editPreview.style.display = 'none';
+  }
+
+  // Mostrar texto con cuántos están reservados (reservados = total - available)
+  var reserved = parseInt(total,10) - parseInt(available,10);
+  if(reserved < 0) reserved = 0;
+  document.getElementById('edit_reserved_text').textContent = 'Reservados: ' + reserved + ' — Disponibles ahora: ' + available;
+});
+
+// Preview when choosing new image in edit modal
+const editImage = document.getElementById('edit_image');
+const editPreview = document.getElementById('edit_preview');
+if(editImage){
+  editImage.addEventListener('change', function(){
+    const f = this.files[0];
+    if(!f){ 
+      // if no file selected, show existing image (already set when modal opened)
+      return;
+    }
+    if(!f.type.startsWith('image/')) { return; }
+    const reader = new FileReader();
+    reader.onload = function(e){ editPreview.src = e.target.result; editPreview.style.display = 'block'; };
+    reader.readAsDataURL(f);
+  });
+}
 
 // ----- Reserve modal behavior (same as antes) -----
 var reserveModal = document.getElementById('reserveModal');
