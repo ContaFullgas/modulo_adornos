@@ -3,12 +3,18 @@ require_once __DIR__ . '/../config/auth.php';
 require_login();
 require_admin(); // solo admin ve historial por defecto
 $list = [];
-$res = $conn->query("SELECT r.*, i.name as item_name, d.name as dept_name, u.username as handled_by_user 
-                     FROM returns r 
-                     LEFT JOIN items i ON r.item_id=i.id
-                     LEFT JOIN departments d ON r.dept_id=d.id
-                     LEFT JOIN users u ON r.handled_by=u.id
-                     ORDER BY r.returned_at DESC");
+$res = $conn->query("
+                    SELECT r.*, 
+                          i.code AS item_name, 
+                          d.name AS dept_name, 
+                          u.username AS handled_by_user
+                    FROM returns r
+                    LEFT JOIN items i ON r.item_id = i.id
+                    LEFT JOIN departments d ON r.dept_id = d.id
+                    LEFT JOIN users u ON r.handled_by = u.id
+                    ORDER BY r.returned_at DESC
+                ");
+
 while($row = $res->fetch_assoc()) $list[] = $row;
 ?>
 <!doctype html>
