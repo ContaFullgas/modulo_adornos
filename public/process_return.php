@@ -39,7 +39,7 @@ if (!$resRow) {
 }
 
 $current_status = strtolower($resRow['status'] ?? '');
-if ($current_status === 'returned') {
+if ($current_status === 'devuelto') {
     // ya devuelto, evitar duplicado
     header("Location: reservations.php");
     exit;
@@ -64,7 +64,7 @@ try {
     $stmt->close();
 
     // marcar la reserva como 'returned' (y opcionalmente guardar fecha)
-    $stmt = $conn->prepare("UPDATE reservations SET status = 'returned', returned_at = NOW() WHERE id = ? AND status <> 'returned'");
+    $stmt = $conn->prepare("UPDATE reservations SET status = 'devuelto', returned_at = NOW() WHERE id = ? AND status <> 'devuelto'");
     $stmt->bind_param("i", $reservation_id);
     if (!$stmt->execute()) throw new Exception("Error al actualizar reserva: " . $stmt->error);
     $stmt->close();

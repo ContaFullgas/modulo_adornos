@@ -64,7 +64,7 @@ require_login();
                 <?php
                 $status = strtolower(trim($row['status'] ?? ''));
                 // mostrar botón solo si no está devuelto
-                if (($status !== 'returned') && (current_user()['role'] === 'admin' || current_user()['role'] === 'department')): ?>
+                if (($status !== 'devuelto') && (current_user()['role'] === 'admin' || current_user()['role'] === 'department')): ?>
                     <form method="post" action="process_return.php" style="display:inline-block">
                     <input type="hidden" name="reservation_id" value="<?= (int)$row['id'] ?>">
                     <input type="hidden" name="item_id" value="<?= (int)$row['item_id'] ?>">
