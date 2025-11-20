@@ -22,6 +22,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
         $new_total = max(1, (int)($_POST['total_quantity'] ?? 1));
         $existing_image = $_POST['existing_image'] ?? '';
 
+        // new: celebration_id from form (nullable)
+        $celebration_id = isset($_POST['celebration_id']) && $_POST['celebration_id'] !== '' ? (int)$_POST['celebration_id'] : null;
+
         if($id <= 0 || $code === ''){
             header("Location: items.php");
             exit;
@@ -38,14 +41,17 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute();
         $res = $stmt->get_result();
         if($res->fetch_assoc()){
+            $stmt->close();
             echo "El código ya existe para otro adorno."; exit;
         }
+        $stmt->close();
 
-        // Obtener valores actuales: total_quantity, available_quantity
+        // Obtener valores actuales: total_quantity, available_quantity, image
         $stmt = $conn->prepare("SELECT total_quantity, available_quantity, image FROM items WHERE id = ?");
         $stmt->bind_param("i", $id);
         $stmt->execute();
         $cur = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
         if(!$cur){
             header("Location: items.php"); exit;
         }
@@ -79,14 +85,27 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // Actualizar fila
-        $stmt = $conn->prepare("UPDATE items SET code = ?, description = ?, total_quantity = ?, available_quantity = ?, image = ? WHERE id = ?");
-        $stmt->bind_param("ssissi", $code, $description, $new_total, $new_available, $new_image_name, $id);
+        // Actualizar fila: dos ramas según si celebration_id es null o no
+        if ($celebration_id === null) {
+            // celebration_id => NULL
+            $stmt = $conn->prepare("UPDATE items SET code = ?, description = ?, total_quantity = ?, available_quantity = ?, image = ?, celebration_id = NULL WHERE id = ?");
+            // tipos: s (code), s (description), i (total), i (available), s (image), i (id)
+            $stmt->bind_param("ssiisi", $code, $description, $new_total, $new_available, $new_image_name, $id);
+        } else {
+            // celebration_id => específico
+            $stmt = $conn->prepare("UPDATE items SET code = ?, description = ?, total_quantity = ?, available_quantity = ?, image = ?, celebration_id = ? WHERE id = ?");
+            // tipos: s, s, i, i, s, i, i
+            $stmt->bind_param("ssiisii", $code, $description, $new_total, $new_available, $new_image_name, $celebration_id, $id);
+        }
+
         if($stmt->execute()){
+            $stmt->close();
             header("Location: items.php");
             exit;
         } else {
-            echo "Error al actualizar: " . htmlspecialchars($conn->error);
+            $err = "Error al actualizar: " . htmlspecialchars($conn->error);
+            $stmt->close();
+            echo $err;
             exit;
         }
     }
@@ -105,12 +124,14 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param("i", $id);
         $stmt->execute();
         $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
         $img = $row['image'] ?? '';
 
         // Borrar fila
         $stmt = $conn->prepare("DELETE FROM items WHERE id = ?");
         $stmt->bind_param("i", $id);
         if($stmt->execute()){
+            $stmt->close();
             // borrar imagen si existe
             if(!empty($img)){
                 $path = __DIR__ . "/uploads/" . $img;
@@ -119,7 +140,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             header("Location: items.php");
             exit;
         } else {
-            echo "Error al eliminar: " . htmlspecialchars($conn->error);
+            $err = "Error al eliminar: " . htmlspecialchars($conn->error);
+            $stmt->close();
+            echo $err;
             exit;
         }
     }

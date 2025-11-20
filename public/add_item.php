@@ -1,18 +1,17 @@
 <?php
-// add_item.php (con redirect a items.php después de insertar)
+// add_item.php - procesa la creación de un adorno (desde modal en items.php)
 require_once __DIR__ . '/../config/auth.php';
 require_login();
 if(current_user()['role'] !== 'admin') { echo "Acceso denegado"; exit; }
 
 $err = '';
-// $success ya no es necesario para redirigir, lo dejamos por si quieres mostrar algo si no redirigimos
-$success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Recoger y sanitizar
     $code = isset($_POST['code']) ? strtoupper(trim($_POST['code'])) : '';
     $desc = $conn->real_escape_string($_POST["description"] ?? '');
     $total = max(1, (int)($_POST["total_quantity"] ?? 1));
+    $celebration_id = isset($_POST['celebration_id']) && $_POST['celebration_id'] !== '' ? (int)$_POST['celebration_id'] : null;
 
     // Validación de formato
     if(!preg_match('/^\d+[A-Za-z]*$/', $code)) {
@@ -28,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if($res_check->fetch_assoc()) {
             $err = "El código ya existe. Debes usar un código/folio irrepetible.";
         }
+        $stmt_check->close();
     }
 
     // Procesar imagen si no hay errores
@@ -45,11 +45,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Insertar en DB
     if(!$err) {
-        $stmt = $conn->prepare("INSERT INTO items (code, description, total_quantity, available_quantity, image) VALUES (?, ?, ?, ?, ?)");
-        $avail = $total;
-        $stmt->bind_param("ssiis", $code, $desc, $total, $avail, $image_name);
+        // Si celebration_id es null, puedes insertar NULL explícitamente construyendo otra consulta.
+        if ($celebration_id === null) {
+            $stmt = $conn->prepare("
+                INSERT INTO items (code, description, total_quantity, available_quantity, image, celebration_id)
+                VALUES (?, ?, ?, ?, ?, NULL)
+            ");
+            // tipos: s (code), s (desc), i (total), i (avail), s (image)
+            $avail = $total;
+            $stmt->bind_param("ssiis", $code, $desc, $total, $avail, $image_name);
+        } else {
+            $stmt = $conn->prepare("
+                INSERT INTO items (code, description, total_quantity, available_quantity, image, celebration_id)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            $avail = $total;
+            // tipos: s (code), s (desc), i (total), i (avail), s (image), i (celebration_id)
+            $stmt->bind_param("ssiisi", $code, $desc, $total, $avail, $image_name, $celebration_id);
+        }
+
         if($stmt->execute()) {
-            // redirigir a la lista actualizada
+            $stmt->close();
             header("Location: items.php");
             exit;
         } else {
@@ -57,89 +73,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if($image_name && file_exists(__DIR__ . "/uploads/" . $image_name)) {
                 @unlink(__DIR__ . "/uploads/" . $image_name);
             }
+            if(isset($stmt) && $stmt) $stmt->close();
         }
     }
 }
-?>
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Agregar Adorno (por código)</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-      #preview { max-width: 240px; max-height: 240px; display:block; margin-top:0.5rem; }
-    </style>
-</head>
-<body>
-<?php include("navbar.php"); ?>
 
-<div class="container py-4">
-    <h2>Agregar Adorno (Código / Folio)</h2>
-
-    <?php if($err): ?>
-      <div class="alert alert-danger"><?= htmlspecialchars($err) ?></div>
-    <?php endif; ?>
-
-    <form method="POST" enctype="multipart/form-data" id="addForm">
-        <div class="mb-3">
-            <label class="form-label">Código / Folio (único) *</label>
-            <input name="code" id="code" class="form-control" required
-                   value="<?= isset($_POST['code']) ? htmlspecialchars($_POST['code']) : '' ?>"
-                   placeholder="ej. 2, 2A, 12B">
-            <div class="form-text">Formato: un número seguido opcionalmente por letras (ej. 2, 2A, 2B).</div>
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Descripción (opcional)</label>
-            <textarea name="description" class="form-control"><?= isset($_POST['description']) ? htmlspecialchars($_POST['description']) : '' ?></textarea>
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Cantidad total *</label>
-            <input type="number" name="total_quantity" class="form-control" min="1" required
-                   value="<?= isset($_POST['total_quantity']) ? (int)$_POST['total_quantity'] : 1 ?>">
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Foto (opcional) — se mostrará preview</label>
-            <input type="file" name="image" id="imageInput" accept="image/*" class="form-control">
-            <img id="preview" src="#" alt="Preview" style="display:none;">
-        </div>
-
-        <button class="btn btn-primary">Agregar Adorno</button>
-    </form>
-</div>
-
-<script>
-// Imagen preview
-const imageInput = document.getElementById('imageInput');
-const preview = document.getElementById('preview');
-if(imageInput){
-  imageInput.addEventListener('change', function(e){
-      const file = this.files[0];
-      if(!file) { preview.style.display = 'none'; preview.src = '#'; return; }
-      if(!file.type.startsWith('image/')) {
-          preview.style.display = 'none';
-          preview.src = '#';
-          return;
-      }
-      const reader = new FileReader();
-      reader.onload = function(ev) {
-          preview.src = ev.target.result;
-          preview.style.display = 'block';
-      };
-      reader.readAsDataURL(file);
-  });
+// Si llegas aquí por GET o por error, mostrar error simple y link de vuelta
+if($err){
+    echo "<div style='margin:20px;'><div style='color:red;padding:10px;border:1px solid #f00;background:#fee;'>".htmlspecialchars($err)."</div>";
+    echo '<p><a href="items.php">Volver a lista</a></p></div>';
+    exit;
+} else {
+    // Si se accede por GET directo, redirigimos a items.php
+    header("Location: items.php");
+    exit;
 }
-
-// Opcional: forzar uppercase en código, quitar espacios
-const codeInput = document.getElementById('code');
-if(codeInput){
-  codeInput.addEventListener('input', function(){ 
-      this.value = this.value.toUpperCase().replace(/\s+/g, '');
-  });
-}
-</script>
-</body>
-</html>
