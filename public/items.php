@@ -29,13 +29,14 @@ require_login();
     $sel = isset($_GET['celebration']) ? (int)$_GET['celebration'] : 0;
     $celebs = $conn->query("SELECT id, name FROM celebrations ORDER BY name");
     ?>
+
     <form method="get" class="mb-3 row g-2 align-items-center">
       <div class="col-auto">
         <select name="celebration" class="form-select" onchange="this.form.submit()">
           <option value="0">Todas las celebraciones</option>
           <?php
           if($celebs){
-              foreach($celebs as $c){
+              while($c = $celebs->fetch_assoc()){
                   $cid = (int)$c['id'];
                   $selAttr = ($sel === $cid) ? ' selected' : '';
                   echo "<option value=\"{$cid}\"{$selAttr}>".htmlspecialchars($c['name'])."</option>";
@@ -53,12 +54,38 @@ require_login();
 
     <div class="row">
         <?php
+        // Comprobar columna code
         $colCheck = $conn->query("SHOW COLUMNS FROM items LIKE 'code'");
         if(!$colCheck || $colCheck->num_rows === 0){
             echo '<div class="alert alert-warning">La columna <strong>code</strong> no existe en la tabla <em>items</em>. Ejecuta el ALTER TABLE para crearla.</div>';
         }
 
+        // Obtener items filtrados
         $where = $sel ? "WHERE celebration_id = " . intval($sel) : "";
+
+        // OPTIMIZACIÓN: traer todas las reservas activas agrupadas por item y por departamento
+        // (asume status 'reservado' es el que indica apartados)
+        $reserved_map = []; // estructura: [ item_id => [ [name=>'Dept', qty=>n], ... ] ]
+        $res_group = $conn->query("
+            SELECT r.item_id, d.id AS dept_id, d.name AS dept_name, SUM(r.quantity) AS qty
+            FROM reservations r
+            JOIN departments d ON d.id = r.dept_id
+            WHERE LOWER(r.status) = 'reservado'
+            GROUP BY r.item_id, d.id, d.name
+        ");
+        if($res_group){
+            while($rg = $res_group->fetch_assoc()){
+                $iid = (int)$rg['item_id'];
+                if(!isset($reserved_map[$iid])) $reserved_map[$iid] = [];
+                $reserved_map[$iid][] = [
+                    'dept_id' => (int)$rg['dept_id'],
+                    'dept_name' => $rg['dept_name'],
+                    'qty' => (int)$rg['qty']
+                ];
+            }
+        }
+
+        // Consulta de items
         $res = $conn->query("SELECT * FROM items $where ORDER BY code");
         if(!$res){
             echo '<div class="alert alert-danger">Error en la consulta: ' . htmlspecialchars($conn->error) . '</div>';
@@ -66,10 +93,10 @@ require_login();
             while ($row = $res->fetch_assoc()):
                 $item_id = (int)$row['id'];
                 $code = htmlspecialchars($row['code'] ?? $row['id']);
-                $desc = htmlspecialchars($row['description']);
+                $desc = $row['description'] ?? '';
                 $avail = (int)$row['available_quantity'];
                 $total = (int)$row['total_quantity'];
-                $image = $row['image'];
+                $image = $row['image'] ?? '';
                 $celebration_id = (int)($row['celebration_id'] ?? 0);
         ?>
         <div class="col-md-4 mb-3">
@@ -86,9 +113,25 @@ require_login();
                     <span class="badge bg-info text-dark mb-2"><?= htmlspecialchars($cname) ?></span>
               <?php endif; endif; ?>
 
-              <p class="card-text"><?= nl2br($desc) ?></p>
+              <p class="card-text"><?= nl2br(htmlspecialchars($desc)) ?></p>
               <p class="mb-1"><strong>Total:</strong> <?= $total ?></p>
               <p class="mt-auto"><strong>Disponibles:</strong> <?= $avail ?></p>
+
+              <?php
+              // Mostrar todos los departamentos que tienen reservas activas para este item (si los hay)
+              $dept_list = $reserved_map[$item_id] ?? [];
+              if (!empty($dept_list)): ?>
+                <p class="text-danger mb-1">
+                  <strong>Actualmente apartado por:</strong>
+                  <?php
+                    $parts = [];
+                    foreach($dept_list as $dinfo){
+                        $parts[] = htmlspecialchars($dinfo['dept_name']) . ' (' . (int)$dinfo['qty'] . ')';
+                    }
+                    echo implode(', ', $parts);
+                  ?>
+                </p>
+              <?php endif; ?>
 
               <div class="mt-3">
                 <?php if($avail > 0): ?>
