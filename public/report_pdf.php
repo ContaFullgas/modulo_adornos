@@ -1,29 +1,51 @@
 <?php
 require_once __DIR__ . '/../config/auth.php';
-require_login();
-require_admin();
+require_login(); // ahora permitimos que usuarios autenticados (no solo admin) accedan
 
 require_once __DIR__ . '/lib/fpdf/fpdf.php';
 
 $type = $_GET['type'] ?? 'reservations';
+
+$user = current_user();
+$isAdmin = ($user && ($user['role'] === 'admin'));
+
+// ---------- determinar filtro de departamento ----------
+$deptParam = isset($_GET['dept']) ? intval($_GET['dept']) : 0;
+$deptFilterSQL = ''; // por defecto sin filtro
+
+if($isAdmin){
+    // admin: puede pedir un dept concreto mediante ?dept=ID
+    if($deptParam > 0){
+        $deptFilterSQL = "WHERE r.dept_id = " . $deptParam;
+    } else {
+        $deptFilterSQL = ""; // todo
+    }
+} else {
+    // usuario no-admin: forzar filtro a su department_id (si tiene)
+    $userDept = !empty($user['department_id']) ? intval($user['department_id']) : 0;
+    if($userDept > 0){
+        $deptFilterSQL = "WHERE r.dept_id = " . $userDept;
+    } else {
+        // Si prefieres denegar el acceso cuando el usuario no tiene dept asignado,
+        // reemplaza las siguientes dos líneas por:
+        // http_response_code(403); echo "Acceso denegado: sin departamento asignado."; exit;
+        $deptFilterSQL = ""; // por ahora mostramos todo si no tiene dept (opcional cambiar)
+    }
+}
+
+// ---------- FPDF y helpers ----------
 $pdf = new FPDF('P','mm','A4');
 $pdf->SetAutoPageBreak(true, 12);
 
-// Helper: convertir UTF-8 a lo que entiende FPDF (ISO-8859-1), transliterando y reemplazando
 function toPdf($s){
     if($s === null) return '';
     $s = (string)$s;
     $repls = [
-        "—" => " - ",
-        "–" => " - ",
-        "“" => '"',
-        "”" => '"',
-        "‘" => "'",
-        "’" => "'",
-        "…" => "...",
-        "•" => "-",
-        "−" => "-", // signo menos
-        "\xC2\xA0" => " " // nbsp
+        "—" => " - ", "–" => " - ",
+        "“" => '"', "”" => '"',
+        "‘" => "'", "’" => "'",
+        "…" => "...", "•" => "-",
+        "−" => "-", "\xC2\xA0" => " "
     ];
     $s = strtr($s, $repls);
     $s = preg_replace('/[\x00-\x1F\x7F]/u', '', $s);
@@ -34,20 +56,9 @@ function toPdf($s){
     return utf8_decode($s);
 }
 
-// Cabecera de tabla (fila única, sin MultiCell)
 function printTableHeader($pdf){
     $pdf->SetFont('Arial','B',9);
-    // Anchos (suman ~190 mm usable en A4 con márgenes 10+10)
-    $w = [
-        'dept' => 35,
-        'photo'=> 20,
-        'code' => 22,
-        'desc' => 38,
-        'qty'  => 12,
-        'user' => 20,
-        'stat' => 18,
-        'date' => 25
-    ];
+    $w = ['dept'=>35,'photo'=>20,'code'=>22,'desc'=>38,'qty'=>12,'user'=>20,'stat'=>18,'date'=>25];
     $pdf->Cell($w['dept'],8, toPdf('Departamento'), 1,0,'L');
     $pdf->Cell($w['photo'],8, toPdf('Foto'), 1,0,'C');
     $pdf->Cell($w['code'],8, toPdf('Código'), 1,0,'C');
@@ -59,26 +70,14 @@ function printTableHeader($pdf){
     $pdf->SetFont('Arial','',9);
 }
 
-// Comprueba si hay espacio para 'height' mm en la página actual
 function hasSpaceFor($pdf, $height){
-    $bottomLimit = ($pdf->h ?? 297) - ($pdf->bMargin ?? 12); // h es altura total
+    $bottomLimit = ($pdf->h ?? 297) - ($pdf->bMargin ?? 12);
     return ($pdf->GetY() + $height) <= $bottomLimit;
 }
 
-/**
- * cellFitText: escribe un texto dentro de una celda (ancho $w, alto $h),
- * reduciendo el tamaño de fuente si es necesario hasta que quepa.
- * - $align: 'L', 'C', 'R'
- * - $fontName y $style son opcionales (ej. 'Arial', '')
- * - $ln: 0 => cursor no avanza de línea; 1 => avanza a la siguiente línea (última celda)
- *
- * NOTA: no intenta leer propiedades protegidas de FPDF; al final deja la fuente en Arial 9.
- */
 function cellFitText($pdf, $w, $h, $txt, $align='L', $fontName='Arial', $style='', $baseSize=9, $minSize=6, $ln = 0){
-    // intentar con tamaño base y reducir si hace falta
     $size = $baseSize;
     $pdf->SetFont($fontName, $style, $size);
-    // dejar un padding interno de 2mm aprox
     $maxWidth = $w - 2;
     $strWidth = $pdf->GetStringWidth($txt);
     while($strWidth > $maxWidth && $size > $minSize){
@@ -86,7 +85,6 @@ function cellFitText($pdf, $w, $h, $txt, $align='L', $fontName='Arial', $style='
         $pdf->SetFont($fontName, $style, $size);
         $strWidth = $pdf->GetStringWidth($txt);
     }
-    // si aún no cabe, truncar y añadir ...
     if($strWidth > $maxWidth){
         $txtShort = $txt;
         while($pdf->GetStringWidth($txtShort . '...') > $maxWidth && mb_strlen($txtShort) > 0){
@@ -94,34 +92,31 @@ function cellFitText($pdf, $w, $h, $txt, $align='L', $fontName='Arial', $style='
         }
         $txt = $txtShort . '...';
     }
-
-    // finalmente imprimir la celda con font ajustada
-    // $ln controla si avanzamos a la siguiente línea (1 lo hace)
     $pdf->Cell($w, $h, $txt, 1, $ln, $align);
-
-    // restaurar fuente a valor por defecto usado en el resto del reporte
     $pdf->SetFont('Arial', '', 9);
 }
 
-
-// Añadir primera página y título
+// ---------- generar PDF ----------
 $pdf->AddPage();
 $pdf->SetFont('Arial','B',14);
 $title = ($type === 'reservations') ? 'Reporte - Reservas' : (($type === 'returns') ? 'Reporte - Devoluciones' : 'Reporte - Adornos');
 $pdf->Cell(0,10, toPdf($title), 0,1,'C');
 $pdf->Ln(2);
 
-// Query y renderizado según tipo
 if($type === 'reservations'){
-    $q = $conn->query("
+    // construimos la query usando $deptFilterSQL (vacío o con WHERE)
+    $whereClause = $deptFilterSQL ? $deptFilterSQL : '';
+    $qStr = "
         SELECT r.*, i.code AS item_code, i.description AS item_description, i.image AS item_image,
                d.name AS dept_name, u.username as user_name
         FROM reservations r
         LEFT JOIN items i ON r.item_id=i.id
         LEFT JOIN departments d ON r.dept_id=d.id
         LEFT JOIN users u ON r.user_id=u.id
+        $whereClause
         ORDER BY r.reserved_at DESC
-    ");
+    ";
+    $q = $conn->query($qStr);
     if(!$q){
         $pdf->SetFont('Arial','',12);
         $pdf->Cell(0,6, toPdf('Error en la consulta: ' . $conn->error), 0,1);
@@ -129,24 +124,17 @@ if($type === 'reservations'){
         exit;
     }
 
-    // imprimir encabezado de tabla
     printTableHeader($pdf);
 
-    // Parámetros visuales
-    $rowH = 14;      // altura fija por fila en mm
-    $imgW = 18; $imgH = 12;
-
-    // anchos (mismo arreglo que header)
+    $rowH = 14; $imgW = 18; $imgH = 12;
     $w = ['dept'=>35,'photo'=>20,'code'=>22,'desc'=>38,'qty'=>12,'user'=>20,'stat'=>18,'date'=>25];
 
     while($row = $q->fetch_assoc()){
-        // controlar salto de página
-        if(!hasSpaceFor($pdf, $rowH + 2)){ // +2 por seguridad
+        if(!hasSpaceFor($pdf, $rowH + 2)){
             $pdf->AddPage();
             printTableHeader($pdf);
         }
 
-        // Normalizar y truncar datos para que no rompan la fila
         $dept = toPdf($row['dept_name'] ?? '');
         $code = toPdf($row['item_code'] ?? ($row['item_id'] ?? ''));
         $descRaw = $row['item_description'] ?? '';
@@ -155,20 +143,16 @@ if($type === 'reservations'){
         $desc = toPdf($descRaw);
 
         $qty = (int)($row['quantity'] ?? 0);
-        $user = toPdf($row['user_name'] ?? '');
+        $userName = toPdf($row['user_name'] ?? '');
         $status = toPdf($row['status'] ?? '');
         $date = toPdf($row['reserved_at'] ?? '');
 
         $imageFile = $row['item_image'] ?? '';
         $imgPath = __DIR__ . '/uploads/' . $imageFile;
 
-        // Dibujar la fila con celdas de altura fija
-        // Departamento
         $pdf->Cell($w['dept'], $rowH, $dept, 1, 0, 'L');
 
-        // Foto (celda vacía con borde; luego Image dentro centrada si existe)
-        $xBefore = $pdf->GetX();
-        $yBefore = $pdf->GetY();
+        $xBefore = $pdf->GetX(); $yBefore = $pdf->GetY();
         $pdf->Cell($w['photo'], $rowH, '', 1, 0, 'C');
         if(!empty($imageFile) && file_exists($imgPath)){
             $imgX = $xBefore + ($w['photo'] - $imgW)/2;
@@ -176,44 +160,32 @@ if($type === 'reservations'){
             try { $pdf->Image($imgPath, $imgX, $imgY, $imgW, $imgH); } catch(Exception $e){}
         }
 
-        // Código
         $pdf->Cell($w['code'], $rowH, $code, 1, 0, 'C');
-
-        // Descripción (una sola línea truncada)
         $pdf->Cell($w['desc'], $rowH, $desc, 1, 0, 'L');
-
-        // Cantidad
         $pdf->Cell($w['qty'], $rowH, (string)$qty, 1, 0, 'C');
-
-        // Usuario
-        $pdf->Cell($w['user'], $rowH, $user, 1, 0, 'L');
-
-        // Estado
+        $pdf->Cell($w['user'], $rowH, $userName, 1, 0, 'L');
         $pdf->Cell($w['stat'], $rowH, $status, 1, 0, 'C');
-
-        // Fecha — usar cellFitText para asegurar que quepa y que además avance de línea al terminar (ln=1)
         cellFitText($pdf, $w['date'], $rowH, $date, 'L', 'Arial', '', 9, 6, 1);
-
-        // ya no usamos $pdf->Ln(0); la celda final avanzó la línea
     }
-
     $q->close();
 
-    // pie
     $pdf->Ln(3);
     $pdf->SetFont('Arial','',8);
     $pdf->Cell(0,5, toPdf('Reporte generado: ' . date('Y-m-d H:i')), 0,1,'R');
 }
 elseif($type === 'returns'){
-    $q = $conn->query("
+    $whereClause = $deptFilterSQL ? $deptFilterSQL : '';
+    $qStr = "
         SELECT r.*, i.code AS item_code, i.description AS item_description, i.image AS item_image,
                d.name AS dept_name, u.username AS handled_by_name
         FROM returns r
         LEFT JOIN items i ON r.item_id=i.id
         LEFT JOIN departments d ON r.dept_id=d.id
         LEFT JOIN users u ON r.handled_by=u.id
+        $whereClause
         ORDER BY r.returned_at DESC
-    ");
+    ";
+    $q = $conn->query($qStr);
     if(!$q){
         $pdf->SetFont('Arial','',12);
         $pdf->Cell(0,6, toPdf('Error en la consulta: ' . $conn->error), 0,1);
@@ -221,11 +193,9 @@ elseif($type === 'returns'){
         exit;
     }
 
-    // imprimir encabezado (reutilizamos la misma tabla)
     printTableHeader($pdf);
 
-    $rowH = 14;
-    $imgW = 18; $imgH = 12;
+    $rowH = 14; $imgW = 18; $imgH = 12;
     $w = ['dept'=>35,'photo'=>20,'code'=>22,'desc'=>38,'qty'=>12,'user'=>20,'stat'=>18,'date'=>25];
 
     while($row = $q->fetch_assoc()){
@@ -241,7 +211,7 @@ elseif($type === 'returns'){
         if(mb_strlen($descRaw) > 140) $descRaw = mb_substr($descRaw,0,140) .'...';
         $desc = toPdf($descRaw);
         $qty = (int)($row['quantity'] ?? 0);
-        $user = toPdf($row['handled_by_name'] ?? '');
+        $userName = toPdf($row['handled_by_name'] ?? '');
         $date = toPdf($row['returned_at'] ?? '');
         $imageFile = $row['item_image'] ?? '';
         $imgPath = __DIR__ . '/uploads/' . $imageFile;
@@ -259,10 +229,8 @@ elseif($type === 'returns'){
         $pdf->Cell($w['code'], $rowH, $code, 1, 0, 'C');
         $pdf->Cell($w['desc'], $rowH, $desc, 1, 0, 'L');
         $pdf->Cell($w['qty'], $rowH, (string)$qty, 1, 0, 'C');
-        $pdf->Cell($w['user'], $rowH, $user, 1, 0, 'L');
+        $pdf->Cell($w['user'], $rowH, $userName, 1, 0, 'L');
         $pdf->Cell($w['stat'], $rowH, toPdf('Devuelto'), 1, 0, 'C');
-
-        // Fecha — usar cellFitText y avanzar (ln=1)
         cellFitText($pdf, $w['date'], $rowH, $date, 'L', 'Arial', '', 9, 6, 1);
     }
     $q->close();
@@ -272,7 +240,6 @@ elseif($type === 'returns'){
     $pdf->Cell(0,5, toPdf('Reporte generado: ' . date('Y-m-d H:i')), 0,1,'R');
 }
 else {
-    // items listing simple
     $pdf->SetFont('Arial','B',12);
     $pdf->Cell(0,8, toPdf('Reporte - Adornos'), 0,1,'C');
     $pdf->Ln(3);
