@@ -425,7 +425,7 @@ if(editImage){
   });
 }
 
-// Reserve modal (igual)
+// Reserve modal (actualizado para preseleccionar y bloquear para role = 'usuario')
 var reserveModal = document.getElementById('reserveModal');
 reserveModal.addEventListener('show.bs.modal', function (event) {
   var button = event.relatedTarget;
@@ -439,10 +439,16 @@ reserveModal.addEventListener('show.bs.modal', function (event) {
   document.getElementById('modal_qty').max = Math.max(1, available);
   document.getElementById('modal_available_text').textContent = 'Disponibles: ' + available;
 
-  <?php if(current_user()['role'] === 'department' && current_user()['department_id']): ?>
-    var deptSelect = document.getElementById('modal_dept_select');
+  // Obtener el select
+  var deptSelect = document.getElementById('modal_dept_select');
+
+  // Si el usuario tiene rol 'usuario' (antes 'department'), preseleccionar su dept y bloquear selector
+  <?php if(current_user()['role'] === 'usuario' && !empty(current_user()['department_id'])): ?>
+    // fijar valor y bloquear
     deptSelect.value = "<?= (int)current_user()['department_id'] ?>";
     deptSelect.disabled = true;
+
+    // crear/actualizar hidden input con dept_id (para submit)
     var existingHidden = document.getElementById('modal_dept_hidden');
     if(!existingHidden){
       var h = document.createElement('input');
@@ -455,14 +461,15 @@ reserveModal.addEventListener('show.bs.modal', function (event) {
       existingHidden.value = "<?= (int)current_user()['department_id'] ?>";
     }
   <?php else: ?>
-    var deptSelect = document.getElementById('modal_dept_select');
+    // Si es admin u otro rol, asegurar que el selector esté habilitado y quitar hidden si existe
     if(deptSelect.disabled){
       deptSelect.disabled = false;
-      var existingHidden = document.getElementById('modal_dept_hidden');
-      if(existingHidden) existingHidden.remove();
     }
+    var existingHidden = document.getElementById('modal_dept_hidden');
+    if(existingHidden) existingHidden.remove();
   <?php endif; ?>
 });
+
 
 document.getElementById('reserveForm').addEventListener('submit', function(e){
   var qty = parseInt(document.getElementById('modal_qty').value || '0', 10);
