@@ -16,7 +16,7 @@ $user = is_logged_in() ? current_user() : null;
         <?php if($user && $user['role'] === 'admin'): ?>
           <li class="nav-item"><a class="nav-link" href="admin_users.php">Usuarios</a></li>
           <li class="nav-item"><a class="nav-link" href="returns.php">Devoluciones</a></li>
-          <li class="nav-item"><a class="nav-link" href="report_pdf.php?type=reservations">Generar PDF</a></li>
+          <li class="nav-item"><a class="nav-link" href="report_pdf.php?type=reservations" target="_blank">Generar PDF</a></li>
         <?php endif; ?>
       </ul>
 
