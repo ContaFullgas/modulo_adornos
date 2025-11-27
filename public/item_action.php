@@ -22,21 +22,18 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
         $new_total = max(1, (int)($_POST['total_quantity'] ?? 1));
         $existing_image = $_POST['existing_image'] ?? '';
 
-        // new: celebration_id from form (nullable)
+        // new: celebration_id and category_id from form (nullable)
         $celebration_id = isset($_POST['celebration_id']) && $_POST['celebration_id'] !== '' ? (int)$_POST['celebration_id'] : null;
+        $category_id    = isset($_POST['category_id']) && $_POST['category_id'] !== '' ? (int)$_POST['category_id'] : null;
 
         if($id <= 0 || $code === ''){
             header("Location: items.php");
             exit;
         }
 
-        // Validar formato de code (opcional)
-        //if(!preg_match('/^\d+[A-Za-z]*$/', $code)){
-        //    echo "Código inválido."; exit;
-        //}
-
         // Verificar unicidad del code (excepto este id)
         $stmt = $conn->prepare("SELECT id FROM items WHERE code = ? AND id <> ?");
+        if(!$stmt){ echo "Error prepare: ".$conn->error; exit; }
         $stmt->bind_param("si", $code, $id);
         $stmt->execute();
         $res = $stmt->get_result();
@@ -48,6 +45,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Obtener valores actuales: total_quantity, available_quantity, image
         $stmt = $conn->prepare("SELECT total_quantity, available_quantity, image FROM items WHERE id = ?");
+        if(!$stmt){ echo "Error prepare: ".$conn->error; exit; }
         $stmt->bind_param("i", $id);
         $stmt->execute();
         $cur = $stmt->get_result()->fetch_assoc();
@@ -85,17 +83,34 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // Actualizar fila: dos ramas según si celebration_id es null o no
-        if ($celebration_id === null) {
-            // celebration_id => NULL
-            $stmt = $conn->prepare("UPDATE items SET code = ?, description = ?, total_quantity = ?, available_quantity = ?, image = ?, celebration_id = NULL WHERE id = ?");
-            // tipos: s (code), s (description), i (total), i (available), s (image), i (id)
+        // Actualizar fila: 4 ramas según si celebration_id / category_id son NULL o no
+        if ($celebration_id === null && $category_id === null) {
+            // ambos NULL
+            $stmt = $conn->prepare("UPDATE items SET code = ?, description = ?, total_quantity = ?, available_quantity = ?, image = ?, celebration_id = NULL, category_id = NULL WHERE id = ?");
+            if(!$stmt){ echo "Error prepare: ".$conn->error; exit; }
+            // tipos: s, s, i, i, s, i
             $stmt->bind_param("ssiisi", $code, $description, $new_total, $new_available, $new_image_name, $id);
-        } else {
-            // celebration_id => específico
-            $stmt = $conn->prepare("UPDATE items SET code = ?, description = ?, total_quantity = ?, available_quantity = ?, image = ?, celebration_id = ? WHERE id = ?");
+
+        } elseif ($celebration_id === null && $category_id !== null) {
+            // celebration NULL, category específico
+            $stmt = $conn->prepare("UPDATE items SET code = ?, description = ?, total_quantity = ?, available_quantity = ?, image = ?, celebration_id = NULL, category_id = ? WHERE id = ?");
+            if(!$stmt){ echo "Error prepare: ".$conn->error; exit; }
+            // tipos: s, s, i, i, s, i, i
+            $stmt->bind_param("ssiisii", $code, $description, $new_total, $new_available, $new_image_name, $category_id, $id);
+
+        } elseif ($celebration_id !== null && $category_id === null) {
+            // celebration específico, category NULL
+            $stmt = $conn->prepare("UPDATE items SET code = ?, description = ?, total_quantity = ?, available_quantity = ?, image = ?, celebration_id = ?, category_id = NULL WHERE id = ?");
+            if(!$stmt){ echo "Error prepare: ".$conn->error; exit; }
             // tipos: s, s, i, i, s, i, i
             $stmt->bind_param("ssiisii", $code, $description, $new_total, $new_available, $new_image_name, $celebration_id, $id);
+
+        } else {
+            // ambos presentes
+            $stmt = $conn->prepare("UPDATE items SET code = ?, description = ?, total_quantity = ?, available_quantity = ?, image = ?, celebration_id = ?, category_id = ? WHERE id = ?");
+            if(!$stmt){ echo "Error prepare: ".$conn->error; exit; }
+            // tipos: s, s, i, i, s, i, i, i
+            $stmt->bind_param("ssiisiii", $code, $description, $new_total, $new_available, $new_image_name, $celebration_id, $category_id, $id);
         }
 
         if($stmt->execute()){
@@ -121,6 +136,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Obtener imagen para borrar
         $stmt = $conn->prepare("SELECT image FROM items WHERE id = ?");
+        if(!$stmt){ echo "Error prepare: ".$conn->error; exit; }
         $stmt->bind_param("i", $id);
         $stmt->execute();
         $row = $stmt->get_result()->fetch_assoc();
@@ -129,6 +145,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Borrar fila
         $stmt = $conn->prepare("DELETE FROM items WHERE id = ?");
+        if(!$stmt){ echo "Error prepare: ".$conn->error; exit; }
         $stmt->bind_param("i", $id);
         if($stmt->execute()){
             $stmt->close();

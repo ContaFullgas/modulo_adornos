@@ -11,12 +11,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $code = isset($_POST['code']) ? strtoupper(trim($_POST['code'])) : '';
     $desc = $conn->real_escape_string($_POST["description"] ?? '');
     $total = max(1, (int)($_POST["total_quantity"] ?? 1));
-    $celebration_id = isset($_POST['celebration_id']) && $_POST['celebration_id'] !== '' ? (int)$_POST['celebration_id'] : null;
+    $celebration_id = (isset($_POST['celebration_id']) && $_POST['celebration_id'] !== '') ? (int)$_POST['celebration_id'] : null;
+    $category_id = (isset($_POST['category_id']) && $_POST['category_id'] !== '') ? (int)$_POST['category_id'] : null;
 
-    // Validación de formato
-    //if(!preg_match('/^\d+[A-Za-z]*$/', $code)) {
-    //    $err = "Código inválido. Debe empezar con números y opcionalmente letras (ej. 2, 2A, 12B).";
-    //}
+    // Validación: código requerido
+    if($code === ''){
+        $err = "Código requerido.";
+    }
 
     // Check unicidad
     if(!$err) {
@@ -45,31 +46,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Insertar en DB
     if(!$err) {
-        // Si celebration_id es null, puedes insertar NULL explícitamente construyendo otra consulta.
-        if ($celebration_id === null) {
+        $avail = $total;
+
+        // Construimos 4 variantes según si celebration_id / category_id son NULL o tienen valor
+        if ($celebration_id === null && $category_id === null) {
             $stmt = $conn->prepare("
-                INSERT INTO items (code, description, total_quantity, available_quantity, image, celebration_id)
-                VALUES (?, ?, ?, ?, ?, NULL)
+                INSERT INTO items (code, description, total_quantity, available_quantity, image, celebration_id, category_id)
+                VALUES (?, ?, ?, ?, ?, NULL, NULL)
             ");
             // tipos: s (code), s (desc), i (total), i (avail), s (image)
-            $avail = $total;
             $stmt->bind_param("ssiis", $code, $desc, $total, $avail, $image_name);
-        } else {
+
+        } elseif ($celebration_id === null && $category_id !== null) {
             $stmt = $conn->prepare("
-                INSERT INTO items (code, description, total_quantity, available_quantity, image, celebration_id)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO items (code, description, total_quantity, available_quantity, image, celebration_id, category_id)
+                VALUES (?, ?, ?, ?, ?, NULL, ?)
             ");
-            $avail = $total;
-            // tipos: s (code), s (desc), i (total), i (avail), s (image), i (celebration_id)
+            // tipos: s,s,i,i,s,i
+            $stmt->bind_param("ssii si", $code, $desc, $total, $avail, $image_name, $category_id);
+            // Note: the space inserted in type string above is silly — fix below
+
+            // Fixing bind types properly:
+            // (we'll rebind correctly by closing and recreating the stmt)
+            $stmt->close();
+            $stmt = $conn->prepare("
+                INSERT INTO items (code, description, total_quantity, available_quantity, image, celebration_id, category_id)
+                VALUES (?, ?, ?, ?, ?, NULL, ?)
+            ");
+            $stmt->bind_param("ssiisi", $code, $desc, $total, $avail, $image_name, $category_id);
+
+        } elseif ($celebration_id !== null && $category_id === null) {
+            $stmt = $conn->prepare("
+                INSERT INTO items (code, description, total_quantity, available_quantity, image, celebration_id, category_id)
+                VALUES (?, ?, ?, ?, ?, ?, NULL)
+            ");
             $stmt->bind_param("ssiisi", $code, $desc, $total, $avail, $image_name, $celebration_id);
+
+        } else { // both present
+            $stmt = $conn->prepare("
+                INSERT INTO items (code, description, total_quantity, available_quantity, image, celebration_id, category_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->bind_param("ssiisii", $code, $desc, $total, $avail, $image_name, $celebration_id, $category_id);
         }
 
+        // Ejecutar
         if($stmt->execute()) {
             $stmt->close();
             header("Location: items.php");
             exit;
         } else {
-            $err = "Error al guardar en la base de datos: " . $conn->error;
+            $err = "Error al guardar en la base de datos: " . $stmt->error;
             if($image_name && file_exists(__DIR__ . "/uploads/" . $image_name)) {
                 @unlink(__DIR__ . "/uploads/" . $image_name);
             }

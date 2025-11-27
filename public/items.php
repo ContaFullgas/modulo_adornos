@@ -25,9 +25,14 @@ require_login();
     <?php endif; ?>
 
     <?php
-    // FILTRO: celebraciones
-    $sel = isset($_GET['celebration']) ? (int)$_GET['celebration'] : 0;
+    // FILTROS: celebraciones y categorías
+    $selCelebration = isset($_GET['celebration']) ? (int)$_GET['celebration'] : 0;
+    $selCategory    = isset($_GET['category']) ? (int)$_GET['category'] : 0;
+
+    // cargar celebraciones
     $celebs = $conn->query("SELECT id, name FROM celebrations ORDER BY name");
+    // cargar categorías (classification / category)
+    $cats = $conn->query("SELECT id, name FROM categories ORDER BY name");
     ?>
 
     <form method="get" class="mb-3 row g-2 align-items-center">
@@ -38,14 +43,30 @@ require_login();
           if($celebs){
               while($c = $celebs->fetch_assoc()){
                   $cid = (int)$c['id'];
-                  $selAttr = ($sel === $cid) ? ' selected' : '';
+                  $selAttr = ($selCelebration === $cid) ? ' selected' : '';
                   echo "<option value=\"{$cid}\"{$selAttr}>".htmlspecialchars($c['name'])."</option>";
               }
           }
           ?>
         </select>
       </div>
-      <?php if($sel): ?>
+
+      <div class="col-auto">
+        <select name="category" class="form-select" onchange="this.form.submit()">
+          <option value="0">Todas las categorías</option>
+          <?php
+          if($cats){
+              while($cat = $cats->fetch_assoc()){
+                  $catid = (int)$cat['id'];
+                  $selAttr = ($selCategory === $catid) ? ' selected' : '';
+                  echo "<option value=\"{$catid}\"{$selAttr}>".htmlspecialchars($cat['name'])."</option>";
+              }
+          }
+          ?>
+        </select>
+      </div>
+
+      <?php if($selCelebration || $selCategory): ?>
         <div class="col-auto">
           <a href="items.php" class="btn btn-outline-secondary">Limpiar filtro</a>
         </div>
@@ -60,12 +81,14 @@ require_login();
             echo '<div class="alert alert-warning">La columna <strong>code</strong> no existe en la tabla <em>items</em>. Ejecuta el ALTER TABLE para crearla.</div>';
         }
 
-        // Obtener items filtrados
-        $where = $sel ? "WHERE celebration_id = " . intval($sel) : "";
+        // construir WHERE con ambos filtros si aplica
+        $conds = [];
+        if($selCelebration) $conds[] = "celebration_id = " . intval($selCelebration);
+        if($selCategory)    $conds[] = "category_id = " . intval($selCategory);
+        $where = $conds ? ("WHERE " . implode(" AND ", $conds)) : "";
 
         // OPTIMIZACIÓN: traer todas las reservas activas agrupadas por item y por departamento
-        // (asume status 'reservado' es el que indica apartados)
-        $reserved_map = []; // estructura: [ item_id => [ [name=>'Dept', qty=>n], ... ] ]
+        $reserved_map = []; // estructura: [ item_id => [ [dept_id..., dept_name..., qty...], ... ] ]
         $res_group = $conn->query("
             SELECT r.item_id, d.id AS dept_id, d.name AS dept_name, SUM(r.quantity) AS qty
             FROM reservations r
@@ -98,6 +121,7 @@ require_login();
                 $total = (int)$row['total_quantity'];
                 $image = $row['image'] ?? '';
                 $celebration_id = (int)($row['celebration_id'] ?? 0);
+                $category_id = (int)($row['category_id'] ?? 0);
         ?>
         <div class="col-md-4 mb-3">
           <div class="card h-100 shadow-sm">
@@ -107,11 +131,17 @@ require_login();
             <div class="card-body d-flex flex-column">
               <h5 class="card-title"><strong>Código: </strong><?= $code ?></h5>
 
-              <?php if($celebration_id):
+              <?php
+              // mostrar badges: celebración y categoría
+              if($celebration_id){
                   $cname = $conn->query("SELECT name FROM celebrations WHERE id = " . $celebration_id)->fetch_assoc()['name'] ?? '';
-                  if($cname): ?>
-                    <span class="badge bg-info text-dark mb-2"><?= htmlspecialchars($cname) ?></span>
-              <?php endif; endif; ?>
+                  if($cname) echo '<span class="badge bg-info text-dark mb-2 me-1">'.htmlspecialchars($cname).'</span>';
+              }
+              if($category_id){
+                  $catname = $conn->query("SELECT name FROM categories WHERE id = " . $category_id)->fetch_assoc()['name'] ?? '';
+                  if($catname) echo '<span class="badge bg-secondary text-white mb-2">'.htmlspecialchars($catname).'</span>';
+              }
+              ?>
 
               <p class="card-text"><?= nl2br(htmlspecialchars($desc)) ?></p>
               <p class="mb-1"><strong>Total:</strong> <?= $total ?></p>
@@ -160,6 +190,7 @@ require_login();
                     data-available="<?= $avail ?>"
                     data-image="<?= htmlspecialchars($image, ENT_QUOTES) ?>"
                     data-celebration="<?= $celebration_id ?>"
+                    data-category="<?= $category_id ?>"
                   >Editar</button>
 
                   <form method="POST" action="item_action.php?action=delete" class="d-inline-block ms-2" onsubmit="return confirm('Eliminar adorno <?= addslashes($code) ?>?');">
@@ -185,7 +216,7 @@ require_login();
     <form method="POST" action="add_item.php" enctype="multipart/form-data" class="modal-content" id="addItemForm">
       <div class="modal-header">
         <h5 class="modal-title">Agregar Adorno (Código)</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        <button type="button" class="btn btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body">
         <div class="mb-3">
@@ -202,6 +233,23 @@ require_login();
             $cs = $conn->query("SELECT id, name FROM celebrations ORDER BY name");
             while($c = $cs->fetch_assoc()){
                 echo "<option value=\"{$c['id']}\">".htmlspecialchars($c['name'])."</option>";
+            }
+            ?>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Categoría</label>
+          <select name="category_id" id="add_category" class="form-select" required>
+            <option value="">-- seleccionar --</option>
+            <?php
+            $cats2 = $conn->query("SELECT id, name FROM categories ORDER BY name");
+            if($cats2){
+                while($ct = $cats2->fetch_assoc()){
+                    echo "<option value=\"{$ct['id']}\">".htmlspecialchars($ct['name'])."</option>";
+                }
+            } else {
+                echo "<option value=\"\">(No hay categorías)</option>";
             }
             ?>
           </select>
@@ -238,7 +286,7 @@ require_login();
     <form method="POST" action="item_action.php?action=edit" enctype="multipart/form-data" class="modal-content" id="editItemForm">
       <div class="modal-header">
         <h5 class="modal-title">Editar Adorno</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        <button type="button" class="btn btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body">
         <input type="hidden" name="id" id="edit_id">
@@ -256,6 +304,19 @@ require_login();
             $cs2 = $conn->query("SELECT id, name FROM celebrations ORDER BY name");
             while($c2 = $cs2->fetch_assoc()){
                 echo "<option value=\"{$c2['id']}\">".htmlspecialchars($c2['name'])."</option>";
+            }
+            ?>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Categoría</label>
+          <select name="category_id" id="edit_category" class="form-select" required>
+            <option value="">-- seleccionar --</option>
+            <?php
+            $cats3 = $conn->query("SELECT id, name FROM categories ORDER BY name");
+            while($ct3 = $cats3->fetch_assoc()){
+                echo "<option value=\"{$ct3['id']}\">".htmlspecialchars($ct3['name'])."</option>";
             }
             ?>
           </select>
@@ -297,7 +358,7 @@ require_login();
     <form id="reserveForm" method="post" action="reserve.php" class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">Reservar adorno</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        <button type="button" class="btn btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body">
         <input type="hidden" name="item_id" id="modal_item_id">
@@ -363,16 +424,16 @@ if(addCode){
 
 // Validación antes de enviar (Agregar)
 document.getElementById('addItemForm').addEventListener('submit', function(e){
-  const code = addCode.value.trim();
-  //if(!/^\d+[A-Za-z]*$/.test(code)){
-  //  e.preventDefault();
-  //  alert('Código inválido. Debe ser: dígitos seguidos opcionalmente de letras (ej. 2, 2A).');
-  //  return false;
-  //}
   const celebration = document.getElementById('add_celebration');
   if(celebration && celebration.value === ''){
     e.preventDefault();
     alert('Selecciona una celebración.');
+    return false;
+  }
+  const category = document.getElementById('add_category');
+  if(category && category.value === ''){
+    e.preventDefault();
+    alert('Selecciona una categoría.');
     return false;
   }
   return true;
@@ -389,6 +450,7 @@ editModal.addEventListener('show.bs.modal', function (event) {
   var available = button.getAttribute('data-available') || '0';
   var image = button.getAttribute('data-image') || '';
   var celebration = button.getAttribute('data-celebration') || '';
+  var category = button.getAttribute('data-category') || '';
 
   document.getElementById('edit_id').value = id;
   document.getElementById('edit_code').value = code;
@@ -396,6 +458,7 @@ editModal.addEventListener('show.bs.modal', function (event) {
   document.getElementById('edit_description').value = description;
   document.getElementById('edit_existing_image').value = image;
   document.getElementById('edit_celebration').value = celebration;
+  document.getElementById('edit_category').value = category;
 
   var editPreview = document.getElementById('edit_preview');
   if(image){
@@ -425,7 +488,7 @@ if(editImage){
   });
 }
 
-// Reserve modal (actualizado para preseleccionar y bloquear para role = 'usuario')
+// Reserve modal (actualizado para preseleccionar y bloquear para rol 'usuario' si aplica)
 var reserveModal = document.getElementById('reserveModal');
 reserveModal.addEventListener('show.bs.modal', function (event) {
   var button = event.relatedTarget;
@@ -439,16 +502,11 @@ reserveModal.addEventListener('show.bs.modal', function (event) {
   document.getElementById('modal_qty').max = Math.max(1, available);
   document.getElementById('modal_available_text').textContent = 'Disponibles: ' + available;
 
-  // Obtener el select
   var deptSelect = document.getElementById('modal_dept_select');
 
-  // Si el usuario tiene rol 'usuario' (antes 'department'), preseleccionar su dept y bloquear selector
   <?php if(current_user()['role'] === 'usuario' && !empty(current_user()['department_id'])): ?>
-    // fijar valor y bloquear
     deptSelect.value = "<?= (int)current_user()['department_id'] ?>";
     deptSelect.disabled = true;
-
-    // crear/actualizar hidden input con dept_id (para submit)
     var existingHidden = document.getElementById('modal_dept_hidden');
     if(!existingHidden){
       var h = document.createElement('input');
@@ -461,7 +519,6 @@ reserveModal.addEventListener('show.bs.modal', function (event) {
       existingHidden.value = "<?= (int)current_user()['department_id'] ?>";
     }
   <?php else: ?>
-    // Si es admin u otro rol, asegurar que el selector esté habilitado y quitar hidden si existe
     if(deptSelect.disabled){
       deptSelect.disabled = false;
     }
@@ -469,7 +526,6 @@ reserveModal.addEventListener('show.bs.modal', function (event) {
     if(existingHidden) existingHidden.remove();
   <?php endif; ?>
 });
-
 
 document.getElementById('reserveForm').addEventListener('submit', function(e){
   var qty = parseInt(document.getElementById('modal_qty').value || '0', 10);
