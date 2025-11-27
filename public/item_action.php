@@ -31,9 +31,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Validar formato de code (opcional)
-        if(!preg_match('/^\d+[A-Za-z]*$/', $code)){
-            echo "Código inválido."; exit;
-        }
+        // if(!preg_match('/^\d+[A-Za-z]*$/', $code)){
+        //     echo "Código inválido."; exit;
+        // }
 
         // Verificar unicidad del code (excepto este id)
         $stmt = $conn->prepare("SELECT id FROM items WHERE code = ? AND id <> ?");

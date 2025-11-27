@@ -14,9 +14,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $celebration_id = isset($_POST['celebration_id']) && $_POST['celebration_id'] !== '' ? (int)$_POST['celebration_id'] : null;
 
     // Validación de formato
-    if(!preg_match('/^\d+[A-Za-z]*$/', $code)) {
-        $err = "Código inválido. Debe empezar con números y opcionalmente letras (ej. 2, 2A, 12B).";
-    }
+    // if(!preg_match('/^\d+[A-Za-z]*$/', $code)) {
+    //     $err = "Código inválido. Debe empezar con números y opcionalmente letras (ej. 2, 2A, 12B).";
+    // }
 
     // Check unicidad
     if(!$err) {

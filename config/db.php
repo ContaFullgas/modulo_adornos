@@ -1,9 +1,9 @@
 <?php
 // Edita según tu entorno
-$host = "localhost";
-$user = "root";
-$pass = "";
-$dbname = "adornos";
+$host = 'localhost';
+$user = 'root';
+$pass = '';
+$dbname = 'adornos';
 
 $conn = new mysqli($host, $user, $pass, $dbname);
 if ($conn->connect_error) {
