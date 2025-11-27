@@ -364,11 +364,11 @@ if(addCode){
 // Validación antes de enviar (Agregar)
 document.getElementById('addItemForm').addEventListener('submit', function(e){
   const code = addCode.value.trim();
-  if(!/^\d+[A-Za-z]*$/.test(code)){
-    e.preventDefault();
-    alert('Código inválido. Debe ser: dígitos seguidos opcionalmente de letras (ej. 2, 2A).');
-    return false;
-  }
+  //if(!/^\d+[A-Za-z]*$/.test(code)){
+  //  e.preventDefault();
+  //  alert('Código inválido. Debe ser: dígitos seguidos opcionalmente de letras (ej. 2, 2A).');
+  //  return false;
+  //}
   const celebration = document.getElementById('add_celebration');
   if(celebration && celebration.value === ''){
     e.preventDefault();

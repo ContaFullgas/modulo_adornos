@@ -20,7 +20,7 @@ function current_user() {
 
 function require_login() {
     if(!is_logged_in()){
-        header("Location: /public/login.php");
+        header("Location: login.php");
         exit;
     }
 }
