@@ -20,7 +20,7 @@ $user = is_logged_in() ? current_user() : null;
             <a class="nav-link" href="report_pdf.php?type=reservations" target="_blank">Generar PDF</a>
           </li>
         <?php elseif($user): ?>
-          <!-- Usuario normal: mostramos enlace para generar PDF limitado a su departamento (si tiene) -->
+          <!-- Usuario normal: mostramos enlace para generar PDF limitado a su departamento -->
           <?php if(!empty($user['department_id'])): ?>
             <li class="nav-item">
               <a class="nav-link" href="report_pdf.php?type=reservations&dept=<?= (int)$user['department_id'] ?>" target="_blank">
@@ -28,7 +28,7 @@ $user = is_logged_in() ? current_user() : null;
               </a>
             </li>
           <?php else: ?>
-            <!-- si el usuario no tiene dept asignado, mostramos el enlace deshabilitado o sin href -->
+            <!-- si el usuario no tiene dept asignado, mostramos el enlace deshabilitado -->
             <li class="nav-item">
               <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Generar PDF (sin dept)</a>
             </li>

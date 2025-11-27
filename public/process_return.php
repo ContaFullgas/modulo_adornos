@@ -1,14 +1,6 @@
 <?php
-// process_return.php
 require_once __DIR__ . '/../config/auth.php';
 require_login();
-
-// Permitir admin o departamento (ajusta según tu política)
-if (!in_array(current_user()['role'], ['admin','department'])) {
-    http_response_code(403);
-    echo "Acceso denegado";
-    exit;
-}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header("Location: reservations.php");
@@ -25,27 +17,46 @@ if ($reservation_id <= 0 || $item_id <= 0 || $qty <= 0) {
     exit;
 }
 
+// Verificar permisos: admin puede devolver cualquier reserva, usuario solo las de su departamento
+$user = current_user();
+if ($user['role'] !== 'admin') {
+    $user_dept_id = (int)($user['department_id'] ?? 0);
+    if ($user_dept_id <= 0 || $user_dept_id !== $dept_id) {
+        http_response_code(403);
+        echo "No tienes permisos para devolver esta reserva.";
+        exit;
+    }
+}
+
 // 1) Comprobar existencia y estado de la reserva
-$stmt = $conn->prepare("SELECT id, status, quantity, item_id FROM reservations WHERE id = ?");
+$stmt = $conn->prepare("SELECT id, status, quantity, item_id, dept_id FROM reservations WHERE id = ?");
 $stmt->bind_param("i", $reservation_id);
 $stmt->execute();
 $resRow = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$resRow) {
-    // reserva no encontrada
     header("Location: reservations.php");
     exit;
+}
+
+// Verificar nuevamente los permisos a nivel de base de datos
+if ($user['role'] !== 'admin') {
+    $res_dept_id = (int)($resRow['dept_id'] ?? 0);
+    if ($res_dept_id !== $user_dept_id) {
+        http_response_code(403);
+        echo "No tienes permisos para devolver esta reserva.";
+        exit;
+    }
 }
 
 $current_status = strtolower($resRow['status'] ?? '');
 if ($current_status === 'devuelto') {
-    // ya devuelto, evitar duplicado
     header("Location: reservations.php");
     exit;
 }
 
-// 2) Realizar la devolución en transacción (insert en returns, update items.available_quantity, update reservations.status)
+// 2) Realizar la devolución en transacción
 $conn->begin_transaction();
 
 try {
@@ -57,13 +68,13 @@ try {
     if (!$stmt->execute()) throw new Exception("Error al insertar devolución: " . $stmt->error);
     $stmt->close();
 
-    // actualizar cantidad disponible del item (sumar cantidad devuelta)
+    // actualizar cantidad disponible del item
     $stmt = $conn->prepare("UPDATE items SET available_quantity = available_quantity + ? WHERE id = ?");
     $stmt->bind_param("ii", $qty, $item_id);
     if (!$stmt->execute()) throw new Exception("Error al actualizar item: " . $stmt->error);
     $stmt->close();
 
-    // marcar la reserva como 'returned' (y opcionalmente guardar fecha)
+    // marcar la reserva como 'devuelto'
     $stmt = $conn->prepare("UPDATE reservations SET status = 'devuelto', returned_at = NOW() WHERE id = ? AND status <> 'devuelto'");
     $stmt->bind_param("i", $reservation_id);
     if (!$stmt->execute()) throw new Exception("Error al actualizar reserva: " . $stmt->error);
@@ -75,9 +86,9 @@ try {
 
 } catch (Exception $e) {
     $conn->rollback();
-    // loguea $e->getMessage() si lo deseas, y muestra un mensaje discreto
     error_log("process_return error: " . $e->getMessage());
     echo "<p>Error procesando devolución. Contacta al administrador.</p>";
     echo '<p><a href="reservations.php">Volver</a></p>';
     exit;
 }
+?>
