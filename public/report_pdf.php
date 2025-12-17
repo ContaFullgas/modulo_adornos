@@ -161,7 +161,7 @@ if($type === 'reservations'){
         }
 
         $pdf->Cell($w['code'], $rowH, $code, 1, 0, 'C');
-        $pdf->Cell($w['desc'], $rowH, $desc, 1, 0, 'L');
+        cellFitText($pdf, $w['desc'], $rowH, $desc, 'L', 'Arial', '', 9, 6);
         $pdf->Cell($w['qty'], $rowH, (string)$qty, 1, 0, 'C');
         $pdf->Cell($w['user'], $rowH, $userName, 1, 0, 'L');
         $pdf->Cell($w['stat'], $rowH, $status, 1, 0, 'C');
@@ -227,7 +227,7 @@ elseif($type === 'returns'){
         }
 
         $pdf->Cell($w['code'], $rowH, $code, 1, 0, 'C');
-        $pdf->Cell($w['desc'], $rowH, $desc, 1, 0, 'L');
+        cellFitText($pdf, $w['desc'], $rowH, $desc, 'L', 'Arial', '', 9, 6);
         $pdf->Cell($w['qty'], $rowH, (string)$qty, 1, 0, 'C');
         $pdf->Cell($w['user'], $rowH, $userName, 1, 0, 'L');
         $pdf->Cell($w['stat'], $rowH, toPdf('Devuelto'), 1, 0, 'C');
