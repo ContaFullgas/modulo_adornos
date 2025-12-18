@@ -3,7 +3,7 @@ require_once __DIR__ . '/../config/auth.php';
 require_login();
 
 // --- LÓGICA DE PAGINACIÓN ---
-$items_per_page = 12; 
+$items_per_page = 12;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 if ($page < 1) $page = 1;
 $offset = ($page - 1) * $items_per_page;
@@ -218,7 +218,6 @@ $offset = ($page - 1) * $items_per_page;
         gap: 8px;
         white-space: nowrap;
         height: 100%;
-        /* Para igualar altura si es necesario */
     }
 
     .btn-add-custom:hover {
@@ -233,7 +232,6 @@ $offset = ($page - 1) * $items_per_page;
         background: white;
         padding: 0.6rem 1rem;
         border-radius: 50px;
-        /* Redondeada como una píldora */
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
         display: flex;
         align-items: center;
@@ -284,17 +282,9 @@ $offset = ($page - 1) * $items_per_page;
     }
 
     @keyframes pulse-soft {
-        0% {
-            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.2);
-        }
-
-        70% {
-            box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
-        }
-
-        100% {
-            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-        }
+        0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.2); }
+        70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
     }
 
     .modal-title-custom {
@@ -362,48 +352,34 @@ $offset = ($page - 1) * $items_per_page;
     }
 
     /* Modal imagen */
-    #imageModal .modal-content{
-    background: #0b1220;
-    border: 0;
-    }
-    #imageModal .modal-header{
-    border: 0;
-    }
-    #imageModal .modal-body{
-    padding: 0;
-    }
+    #imageModal .modal-content { background: #0b1220; border: 0; }
+    #imageModal .modal-header { border: 0; }
+    #imageModal .modal-body { padding: 0; }
     #imageModal .img-stage{
-    position: relative;
-    width: 100%;
-    height: min(80vh, 760px);
-    overflow: hidden;
-    background: #0b1220;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+        position: relative;
+        width: 100%;
+        height: min(80vh, 760px);
+        overflow: hidden;
+        background: #0b1220;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    #imageModal #modalImage{
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        user-select: none;
+        -webkit-user-drag: none;
+        cursor: default;
     }
 
-   #imageModal #modalImage{
-    width: 100%;
-    height: 100%;
-    object-fit: contain;     /* se ajusta al área sin deformarse */
-    transform: scale(1);
-    transform-origin: center center;
-    transition: transform 120ms ease;
-    user-select: none;
-    -webkit-user-drag: none;
-    cursor: grab;
+    .text-truncate-2{
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
     }
-    #imageModal #modalImage.grabbing{ cursor: grabbing; }
-
-
-    #imageModal .zoom-controls{
-    display: flex;
-    gap: .5rem;
-    align-items: center;
-    }
-
-
     </style>
 </head>
 
@@ -413,9 +389,9 @@ $offset = ($page - 1) * $items_per_page;
     <div class="container py-4">
 
         <?php
-    $sel = isset($_GET['celebration']) ? (int)$_GET['celebration'] : 0;
-    $celebs = $conn->query("SELECT id, name FROM celebrations ORDER BY name");
-    ?>
+        $sel = isset($_GET['celebration']) ? (int)$_GET['celebration'] : 0;
+        $celebs = $conn->query("SELECT id, name FROM celebrations ORDER BY name");
+        ?>
 
         <div class="d-flex flex-column flex-md-row align-items-center gap-3 mb-4">
 
@@ -430,14 +406,14 @@ $offset = ($page - 1) * $items_per_page;
                             onchange="this.form.submit()" style="cursor: pointer; min-width: 200px;">
                             <option value="0">Todas las celebraciones</option>
                             <?php
-                        if($celebs){
-                            while($c = $celebs->fetch_assoc()){
-                                $cid = (int)$c['id'];
-                                $selAttr = ($sel === $cid) ? ' selected' : '';
-                                echo "<option value=\"{$cid}\"{$selAttr}>".htmlspecialchars($c['name'])."</option>";
+                            if($celebs){
+                                while($c = $celebs->fetch_assoc()){
+                                    $cid = (int)$c['id'];
+                                    $selAttr = ($sel === $cid) ? ' selected' : '';
+                                    echo "<option value=\"{$cid}\"{$selAttr}>".htmlspecialchars($c['name'])."</option>";
+                                }
                             }
-                        }
-                        ?>
+                            ?>
                         </select>
                     </div>
 
@@ -463,81 +439,80 @@ $offset = ($page - 1) * $items_per_page;
 
         <div class="row g-4">
             <?php
-        $where = $sel ? "WHERE celebration_id = " . intval($sel) : "";
+            $where = $sel ? "WHERE celebration_id = " . intval($sel) : "";
 
-        // Paginación y Totales
-        $total_result = $conn->query("SELECT COUNT(*) as count FROM items $where");
-        $total_items = $total_result->fetch_assoc()['count'];
-        $total_pages = ceil($total_items / $items_per_page);
+            // Paginación y Totales
+            $total_result = $conn->query("SELECT COUNT(*) as count FROM items $where");
+            $total_items = $total_result->fetch_assoc()['count'];
+            $total_pages = ceil($total_items / $items_per_page);
 
-        // Mapeo Reservas
-        $reserved_map = []; 
-        $res_group = $conn->query("
-            SELECT r.item_id, d.id AS dept_id, d.name AS dept_name, SUM(r.quantity) AS qty
-            FROM reservations r
-            JOIN departments d ON d.id = r.dept_id
-            WHERE LOWER(r.status) = 'reservado'
-            GROUP BY r.item_id, d.id, d.name
-        ");
-        if($res_group){
-            while($rg = $res_group->fetch_assoc()){
-                $iid = (int)$rg['item_id'];
-                if(!isset($reserved_map[$iid])) $reserved_map[$iid] = [];
-                $reserved_map[$iid][] = [
-                    'dept_id' => (int)$rg['dept_id'],
-                    'dept_name' => $rg['dept_name'],
-                    'qty' => (int)$rg['qty']
-                ];
+            // Mapeo Reservas
+            $reserved_map = [];
+            $res_group = $conn->query("
+                SELECT r.item_id, d.id AS dept_id, d.name AS dept_name, SUM(r.quantity) AS qty
+                FROM reservations r
+                JOIN departments d ON d.id = r.dept_id
+                WHERE LOWER(r.status) = 'reservado'
+                GROUP BY r.item_id, d.id, d.name
+            ");
+            if($res_group){
+                while($rg = $res_group->fetch_assoc()){
+                    $iid = (int)$rg['item_id'];
+                    if(!isset($reserved_map[$iid])) $reserved_map[$iid] = [];
+                    $reserved_map[$iid][] = [
+                        'dept_id' => (int)$rg['dept_id'],
+                        'dept_name' => $rg['dept_name'],
+                        'qty' => (int)$rg['qty']
+                    ];
+                }
             }
-        }
 
-        $res = $conn->query("SELECT * FROM items $where ORDER BY code LIMIT $offset, $items_per_page");
-        
-        if(!$res || $res->num_rows === 0){
-            echo '<div class="col-12 text-center py-5 text-muted">
-                    <i class="fas fa-search fa-3x mb-3 opacity-25"></i>
-                    <p>No se encontraron adornos.</p>
-                  </div>';
-        } else {
-            while ($row = $res->fetch_assoc()):
-                $item_id = (int)$row['id'];
-                $code = htmlspecialchars($row['code'] ?? $row['id']);
-                $desc = $row['description'] ?? '';
-                $avail = (int)$row['available_quantity'];
-                $total = (int)$row['total_quantity'];
-                $image = $row['image'] ?? '';
-                $celebration_id = (int)($row['celebration_id'] ?? 0);
-                
-                $stockClass = ($avail <= 0) ? 'out-of-stock' : '';
-        ?>
+            $res = $conn->query("SELECT * FROM items $where ORDER BY code LIMIT $offset, $items_per_page");
+
+            if(!$res || $res->num_rows === 0){
+                echo '<div class="col-12 text-center py-5 text-muted">
+                        <i class="fas fa-search fa-3x mb-3 opacity-25"></i>
+                        <p>No se encontraron adornos.</p>
+                    </div>';
+            } else {
+                while ($row = $res->fetch_assoc()):
+                    $item_id = (int)$row['id'];
+                    $code = htmlspecialchars($row['code'] ?? $row['id']);
+                    $desc = $row['description'] ?? '';
+                    $avail = (int)$row['available_quantity'];
+                    $total = (int)$row['total_quantity'];
+                    $image = $row['image'] ?? '';
+                    $image = $image ? basename(trim($image)) : '';
+                    $celebration_id = (int)($row['celebration_id'] ?? 0);
+
+                    $stockClass = ($avail <= 0) ? 'out-of-stock' : '';
+            ?>
             <div class="col-sm-6 col-lg-4 col-xl-3">
-                <div class="card item-card <?= $stockClass ?>">
+                <div class="card item-card <?= $stockClass ?>" id="item-card-<?= $item_id ?>">
 
                     <div class="card-img-wrapper">
                         <?php if(!empty($image)): ?>
                         <img
-                        src="uploads/<?= htmlspecialchars($image) ?>"
-                        alt="Adorno"
-                        class="item-img"
-                        data-fullsrc="uploads/<?= htmlspecialchars($image) ?>"
-                        style="cursor: zoom-in;"
+                            src="uploads/<?= htmlspecialchars($image) ?>"
+                            alt="Adorno"
+                            class="item-img"
+                            data-fullsrc="uploads/<?= htmlspecialchars($image) ?>"
+                            style="cursor: zoom-in;"
                         >
                         <?php else: ?>
-
                         <div class="d-flex align-items-center justify-content-center h-100 bg-light text-secondary">
                             <i class="fas fa-image fa-3x opacity-25"></i>
                         </div>
                         <?php endif; ?>
 
-                        <?php if($avail <= 0): ?>
-                        <div class="status-overlay">
+                        <!-- Agotado (SIEMPRE existe, solo se muestra/oculta) -->
+                        <div class="status-overlay" id="status-overlay-<?= $item_id ?>" style="<?= ($avail <= 0) ? '' : 'display:none;' ?>">
                             <span class="badge bg-danger shadow-sm"><i class="fas fa-ban me-1"></i>Agotado</span>
                         </div>
-                        <?php endif; ?>
 
                         <?php if($celebration_id):
-                        $cname = $conn->query("SELECT name FROM celebrations WHERE id = " . $celebration_id)->fetch_assoc()['name'] ?? '';
-                        if($cname): ?>
+                            $cname = $conn->query("SELECT name FROM celebrations WHERE id = " . $celebration_id)->fetch_assoc()['name'] ?? '';
+                            if($cname): ?>
                         <div class="badge-overlay">
                             <?= htmlspecialchars($cname) ?>
                         </div>
@@ -560,34 +535,42 @@ $offset = ($page - 1) * $items_per_page;
                             </div>
                             <div class="stat-item w-50">
                                 <span class="text-muted small">Disponibles</span>
-                                <span
+                                <span id="avail-<?= $item_id ?>"
                                     class="stat-value <?= $avail > 0 ? 'text-success' : 'text-danger' ?>"><?= $avail ?></span>
                             </div>
                         </div>
 
                         <?php
-                    $dept_list = $reserved_map[$item_id] ?? [];
-                    if (!empty($dept_list)): ?>
-                        <div class="reserved-info">
+                        $dept_list = $reserved_map[$item_id] ?? [];
+                        ?>
+                        <!-- Apartado por (SIEMPRE existe, solo se muestra/oculta) -->
+                        <div class="reserved-info" id="reserved-info-<?= $item_id ?>" style="<?= empty($dept_list) ? 'display:none;' : '' ?>">
                             <i class="fas fa-lock me-1"></i> <strong>Apartado por:</strong><br>
+                            <span id="reserved-text-<?= $item_id ?>">
                             <?php
-                                $parts = [];
-                                foreach($dept_list as $dinfo){
-                                    $parts[] = htmlspecialchars($dinfo['dept_name']) . ' (' . (int)$dinfo['qty'] . ')';
+                                if (!empty($dept_list)){
+                                    $parts = [];
+                                    foreach($dept_list as $dinfo){
+                                        $parts[] = htmlspecialchars($dinfo['dept_name']) . ' (' . (int)$dinfo['qty'] . ')';
+                                    }
+                                    echo implode(', ', $parts);
                                 }
-                                echo implode(', ', $parts);
                             ?>
+                            </span>
                         </div>
-                        <?php endif; ?>
 
                         <div class="action-buttons">
-                            <?php if($avail > 0): ?>
-                            <button class="btn btn-primary btn-reserve rounded-3" data-bs-toggle="modal"
-                                data-bs-target="#reserveModal" data-itemid="<?= $item_id ?>" data-code="<?= $code ?>"
-                                data-available="<?= $avail ?>"><i class="fas fa-cart-plus me-1"></i> Reservar</button>
-                            <?php else: ?>
-                            <button class="btn btn-secondary flex-grow-1 rounded-3" disabled>No disponible</button>
-                            <?php endif; ?>
+                            <!-- Botón reservar (siempre existe) -->
+                            <button
+                                id="reserve-btn-<?= $item_id ?>"
+                                class="btn <?= ($avail > 0) ? 'btn-primary btn-reserve' : 'btn-secondary' ?> flex-grow-1 rounded-3"
+                                <?= ($avail > 0) ? 'data-bs-toggle="modal" data-bs-target="#reserveModal"' : 'disabled' ?>
+                                data-itemid="<?= $item_id ?>"
+                                data-code="<?= $code ?>"
+                                data-available="<?= $avail ?>"
+                            >
+                                <?= ($avail > 0) ? '<i class="fas fa-cart-plus me-1"></i> Reservar' : 'No disponible' ?>
+                            </button>
 
                             <?php if(current_user()['role'] === 'admin'): ?>
                             <div class="dropdown">
@@ -607,9 +590,7 @@ $offset = ($page - 1) * $items_per_page;
                                             <i class="fas fa-pen me-2 text-warning"></i> Editar
                                         </button>
                                     </li>
-                                    <li>
-                                        <hr class="dropdown-divider">
-                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
                                     <li>
                                         <button class="dropdown-item text-danger" type="button" data-bs-toggle="modal"
                                             data-bs-target="#deleteConfirmModal" data-id="<?= $item_id ?>"
@@ -626,9 +607,9 @@ $offset = ($page - 1) * $items_per_page;
                 </div>
             </div>
             <?php
-            endwhile;
-        }
-        ?>
+                endwhile;
+            }
+            ?>
         </div>
 
         <?php if ($total_pages > 1): ?>
@@ -658,6 +639,8 @@ $offset = ($page - 1) * $items_per_page;
         <?php endif; ?>
 
     </div>
+
+    <!-- ====== MODALES (los tuyos igual) ====== -->
 
     <div class="modal fade" id="addItemModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;">
@@ -695,11 +678,11 @@ $offset = ($page - 1) * $items_per_page;
                                 <select name="celebration_id" id="add_celebration" class="form-select" required>
                                     <option value="">-- Seleccionar --</option>
                                     <?php
-                        $cs = $conn->query("SELECT id, name FROM celebrations ORDER BY name");
-                        while($c = $cs->fetch_assoc()){
-                            echo "<option value=\"{$c['id']}\">".htmlspecialchars($c['name'])."</option>";
-                        }
-                        ?>
+                                    $cs = $conn->query("SELECT id, name FROM celebrations ORDER BY name");
+                                    while($c = $cs->fetch_assoc()){
+                                        echo "<option value=\"{$c['id']}\">".htmlspecialchars($c['name'])."</option>";
+                                    }
+                                    ?>
                                 </select>
                                 <label>Celebración</label>
                             </div>
@@ -777,11 +760,11 @@ $offset = ($page - 1) * $items_per_page;
                                     required>
                                     <option value="">-- Seleccionar --</option>
                                     <?php
-                        $cs2 = $conn->query("SELECT id, name FROM celebrations ORDER BY name");
-                        while($c2 = $cs2->fetch_assoc()){
-                            echo "<option value=\"{$c2['id']}\">".htmlspecialchars($c2['name'])."</option>";
-                        }
-                        ?>
+                                    $cs2 = $conn->query("SELECT id, name FROM celebrations ORDER BY name");
+                                    while($c2 = $cs2->fetch_assoc()){
+                                        echo "<option value=\"{$c2['id']}\">".htmlspecialchars($c2['name'])."</option>";
+                                    }
+                                    ?>
                                 </select>
                                 <label>Celebración</label>
                             </div>
@@ -869,11 +852,11 @@ $offset = ($page - 1) * $items_per_page;
                         <select name="dept_id" id="modal_dept_select" class="form-select" required>
                             <option value="">-- Seleccionar Departamento --</option>
                             <?php
-            $deps = $conn->query("SELECT id, name FROM departments ORDER BY name");
-            while($d = $deps->fetch_assoc()){
-                echo "<option value=\"{$d['id']}\">".htmlspecialchars($d['name'])."</option>";
-            }
-            ?>
+                            $deps = $conn->query("SELECT id, name FROM departments ORDER BY name");
+                            while($d = $deps->fetch_assoc()){
+                                echo "<option value=\"{$d['id']}\">".htmlspecialchars($d['name'])."</option>";
+                            }
+                            ?>
                         </select>
                         <label>Departamento</label>
                     </div>
@@ -900,52 +883,33 @@ $offset = ($page - 1) * $items_per_page;
 
     <!-- Modal para ver imagen -->
     <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-        <div class="modal-header px-3 py-2">
-            <!-- <div class="zoom-controls">
-            <button type="button" class="btn btn-sm btn-light" id="zoomOutBtn">
-                <i class="fas fa-minus"></i>
-            </button>
-            <button type="button" class="btn btn-sm btn-light" id="zoomResetBtn">
-                <i class="fas fa-rotate-left"></i> Reset
-            </button>
-            <button type="button" class="btn btn-sm btn-light" id="zoomInBtn">
-                <i class="fas fa-plus"></i>
-            </button>
-            </div> -->
-
-            <button type="button" class="btn btn-sm btn-light ms-auto" data-bs-dismiss="modal" aria-label="Cerrar">
-                <i class="fas fa-xmark"></i>
-            </button>
-        </div>
-
-        <div class="modal-body">
-            <div class="img-stage" id="imgStage">
-            <img id="modalImage" src="" alt="Vista previa">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header px-3 py-2 justify-content-end">
+                    <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal" aria-label="Cerrar">
+                        <i class="fas fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="img-stage" id="imgStage">
+                        <img id="modalImage" src="" alt="Vista previa">
+                    </div>
+                </div>
             </div>
         </div>
-        </div>
     </div>
-    </div>
-
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-    // Scripts anteriores se mantienen igual
     // Imagen preview
     const addImage = document.getElementById('add_image');
     const addPreview = document.getElementById('add_preview');
     if (addImage) {
         addImage.addEventListener('change', function() {
             const f = this.files[0];
-            if (!f) {
+            if (!f || !f.type.startsWith('image/')) {
                 addPreview.style.display = 'none';
                 addPreview.src = '#';
-                return;
-            }
-            if (!f.type.startsWith('image/')) {
-                addPreview.style.display = 'none';
                 return;
             }
             const reader = new FileReader();
@@ -963,14 +927,8 @@ $offset = ($page - 1) * $items_per_page;
         addCode.addEventListener('input', () => addCode.value = addCode.value.toUpperCase().replace(/\s+/g, ''));
     }
 
-    // Validación antes de enviar
-    document.getElementById('addItemForm').addEventListener('submit', function(e) {
-        const code = addCode.value.trim();
-        // if (!/^\d+[A-Za-z]*$/.test(code)) {
-        //     e.preventDefault();
-        //     alert('Código inválido. Debe ser: dígitos seguidos opcionalmente de letras (ej. 2, 2A).');
-        //     return false;
-        // }
+    // Validación antes de enviar (add)
+    document.getElementById('addItemForm')?.addEventListener('submit', function(e) {
         const celebration = document.getElementById('add_celebration');
         if (celebration && celebration.value === '') {
             e.preventDefault();
@@ -982,7 +940,7 @@ $offset = ($page - 1) * $items_per_page;
 
     // Edit modal logic
     var editModal = document.getElementById('editItemModal');
-    editModal.addEventListener('show.bs.modal', function(event) {
+    editModal?.addEventListener('show.bs.modal', function(event) {
         var button = event.relatedTarget;
         var id = button.getAttribute('data-id');
         var code = button.getAttribute('data-code');
@@ -1014,9 +972,9 @@ $offset = ($page - 1) * $items_per_page;
             '<i class="fas fa-info-circle text-warning"></i> Reservados: <strong>' + reserved + '</strong>';
     });
 
-    // Lógica Modal Eliminar
+    // Modal Eliminar
     var deleteModal = document.getElementById('deleteConfirmModal');
-    deleteModal.addEventListener('show.bs.modal', function(event) {
+    deleteModal?.addEventListener('show.bs.modal', function(event) {
         var button = event.relatedTarget;
         var id = button.getAttribute('data-id');
         var code = button.getAttribute('data-code');
@@ -1031,12 +989,7 @@ $offset = ($page - 1) * $items_per_page;
     if (editImage) {
         editImage.addEventListener('change', function() {
             const f = this.files[0];
-            if (!f) {
-                return;
-            }
-            if (!f.type.startsWith('image/')) {
-                return;
-            }
+            if (!f || !f.type.startsWith('image/')) return;
             const reader = new FileReader();
             reader.onload = function(e) {
                 editPreview.src = e.target.result;
@@ -1046,9 +999,9 @@ $offset = ($page - 1) * $items_per_page;
         });
     }
 
-    // Reserve logic
+    // Reserve modal: set data
     var reserveModal = document.getElementById('reserveModal');
-    reserveModal.addEventListener('show.bs.modal', function(event) {
+    reserveModal?.addEventListener('show.bs.modal', function(event) {
         var button = event.relatedTarget;
         var itemId = button.getAttribute('data-itemid');
         var code = button.getAttribute('data-code');
@@ -1067,6 +1020,7 @@ $offset = ($page - 1) * $items_per_page;
         else availText.className = 'text-success fw-bold';
 
         var deptSelect = document.getElementById('modal_dept_select');
+
         <?php if(current_user()['role'] === 'usuario' && !empty(current_user()['department_id'])): ?>
         deptSelect.value = "<?= (int)current_user()['department_id'] ?>";
         deptSelect.disabled = true;
@@ -1083,47 +1037,140 @@ $offset = ($page - 1) * $items_per_page;
             existingHidden.value = "<?= (int)current_user()['department_id'] ?>";
         }
         <?php else: ?>
-        if (deptSelect.disabled) {
-            deptSelect.disabled = false;
-        }
+        if (deptSelect.disabled) deptSelect.disabled = false;
         var existingHidden = document.getElementById('modal_dept_hidden');
         if (existingHidden) existingHidden.remove();
         <?php endif; ?>
     });
 
-    document.getElementById('reserveForm').addEventListener('submit', function(e) {
-        var qty = parseInt(document.getElementById('modal_qty').value || '0', 10);
-        var max = parseInt(document.getElementById('modal_qty').max || '0', 10);
+    // ====== RESERVAR SIN SALIR (AJAX) ======
+    document.getElementById('reserveForm')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const form = this;
+        const qtyInput = document.getElementById('modal_qty');
+
+        const qty = parseInt(qtyInput.value || '0', 10);
+        const max = parseInt(qtyInput.max || '0', 10);
+
         if (qty < 1 || qty > max) {
-            e.preventDefault();
             alert('Cantidad inválida. Debe ser entre 1 y ' + max);
-            return false;
+            return;
+        }
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const oldHtml = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = 'Reservando...';
+
+        try {
+            const fd = new FormData(form);
+
+            const resp = await fetch('ajax/reserve_ajax.php', {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            const json = await resp.json();
+
+            if (!json.ok) {
+                alert(json.message || 'No se pudo reservar.');
+                return;
+            }
+
+            // Cerrar modal
+            const reserveModalEl = document.getElementById('reserveModal');
+            const modalInstance = bootstrap.Modal.getInstance(reserveModalEl);
+            if (modalInstance) modalInstance.hide();
+
+            // Actualizar UI del item
+            const data = json.data;
+            const itemId = data.item_id;
+            const avail = data.available_quantity;
+
+            // Disponibles
+            const availSpan = document.getElementById('avail-' + itemId);
+            if (availSpan) {
+                availSpan.textContent = String(avail);
+                availSpan.classList.remove('text-success','text-danger');
+                availSpan.classList.add(avail > 0 ? 'text-success' : 'text-danger');
+            }
+
+            // Botón reservar
+            const reserveBtn = document.getElementById('reserve-btn-' + itemId);
+            if (reserveBtn) {
+                reserveBtn.setAttribute('data-available', String(avail));
+
+                if (avail <= 0) {
+                    reserveBtn.classList.remove('btn-primary','btn-reserve');
+                    reserveBtn.classList.add('btn-secondary');
+                    reserveBtn.disabled = true;
+                    reserveBtn.removeAttribute('data-bs-toggle');
+                    reserveBtn.removeAttribute('data-bs-target');
+                    reserveBtn.innerHTML = 'No disponible';
+                } else {
+                    // si algún día vuelve a habilitarse (por ajuste manual), lo dejamos listo
+                    reserveBtn.disabled = false;
+                    reserveBtn.setAttribute('data-bs-toggle','modal');
+                    reserveBtn.setAttribute('data-bs-target','#reserveModal');
+                }
+            }
+
+            // Agotado badge + clase out-of-stock
+            const card = document.getElementById('item-card-' + itemId);
+            const overlay = document.getElementById('status-overlay-' + itemId);
+            if (avail <= 0) {
+                if (card) card.classList.add('out-of-stock');
+                if (overlay) overlay.style.display = '';
+            } else {
+                if (overlay) overlay.style.display = 'none';
+            }
+
+            // “Apartado por”
+            const reservedInfo = document.getElementById('reserved-info-' + itemId);
+            const reservedText = document.getElementById('reserved-text-' + itemId);
+            if (reservedInfo && reservedText) {
+                const parts = (data.reserved_by || []).map(x => `${x.dept_name} (${x.qty})`);
+                reservedText.textContent = parts.join(', ');
+                reservedInfo.style.display = parts.length ? '' : 'none';
+            }
+
+            // Limpiar modal
+            form.querySelector('input[name="notes"]').value = '';
+            qtyInput.value = 1;
+
+        } catch (err) {
+            console.error(err);
+            alert('Error de red o del servidor al reservar.');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = oldHtml;
         }
     });
 
-// ========= Modal Imagen (solo abrir/cerrar) =========
-(function(){
-  const imageModalEl = document.getElementById('imageModal');
-  const modalImage = document.getElementById('modalImage');
+    // ========= Modal Imagen (solo abrir/cerrar) =========
+    (function(){
+        const imageModalEl = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
 
-  document.addEventListener('click', function(e){
-    const img = e.target.closest('.item-img');
-    if(!img) return;
+        document.addEventListener('click', function(e){
+            const img = e.target.closest('.item-img');
+            if(!img) return;
 
-    const src = img.getAttribute('data-fullsrc') || img.getAttribute('src');
-    if(!src) return;
+            const src = img.getAttribute('data-fullsrc') || img.getAttribute('src');
+            if(!src) return;
 
-    modalImage.src = src;
-    bootstrap.Modal.getOrCreateInstance(imageModalEl).show();
-  });
+            modalImage.src = src;
+            bootstrap.Modal.getOrCreateInstance(imageModalEl).show();
+        });
 
-  imageModalEl.addEventListener('hidden.bs.modal', () => {
-    modalImage.src = '';
-  });
-})();
-
+        imageModalEl?.addEventListener('hidden.bs.modal', () => {
+            modalImage.src = '';
+        });
+    })();
     </script>
+
     <?php include("footer.php"); ?>
 </body>
-
 </html>
