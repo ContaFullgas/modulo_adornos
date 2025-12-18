@@ -360,6 +360,50 @@ $offset = ($page - 1) * $items_per_page;
     .btn-save-modal.warning:hover {
         background-color: #d97706;
     }
+
+    /* Modal imagen */
+    #imageModal .modal-content{
+    background: #0b1220;
+    border: 0;
+    }
+    #imageModal .modal-header{
+    border: 0;
+    }
+    #imageModal .modal-body{
+    padding: 0;
+    }
+    #imageModal .img-stage{
+    position: relative;
+    width: 100%;
+    height: min(80vh, 760px);
+    overflow: hidden;
+    background: #0b1220;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    }
+
+   #imageModal #modalImage{
+    width: 100%;
+    height: 100%;
+    object-fit: contain;     /* se ajusta al área sin deformarse */
+    transform: scale(1);
+    transform-origin: center center;
+    transition: transform 120ms ease;
+    user-select: none;
+    -webkit-user-drag: none;
+    cursor: grab;
+    }
+    #imageModal #modalImage.grabbing{ cursor: grabbing; }
+
+
+    #imageModal .zoom-controls{
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    }
+
+
     </style>
 </head>
 
@@ -471,8 +515,15 @@ $offset = ($page - 1) * $items_per_page;
 
                     <div class="card-img-wrapper">
                         <?php if(!empty($image)): ?>
-                        <img src="uploads/<?= htmlspecialchars($image) ?>" alt="Adorno">
+                        <img
+                        src="uploads/<?= htmlspecialchars($image) ?>"
+                        alt="Adorno"
+                        class="item-img"
+                        data-fullsrc="uploads/<?= htmlspecialchars($image) ?>"
+                        style="cursor: zoom-in;"
+                        >
                         <?php else: ?>
+
                         <div class="d-flex align-items-center justify-content-center h-100 bg-light text-secondary">
                             <i class="fas fa-image fa-3x opacity-25"></i>
                         </div>
@@ -847,6 +898,38 @@ $offset = ($page - 1) * $items_per_page;
         </div>
     </div>
 
+    <!-- Modal para ver imagen -->
+    <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+        <div class="modal-header px-3 py-2">
+            <!-- <div class="zoom-controls">
+            <button type="button" class="btn btn-sm btn-light" id="zoomOutBtn">
+                <i class="fas fa-minus"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-light" id="zoomResetBtn">
+                <i class="fas fa-rotate-left"></i> Reset
+            </button>
+            <button type="button" class="btn btn-sm btn-light" id="zoomInBtn">
+                <i class="fas fa-plus"></i>
+            </button>
+            </div> -->
+
+            <button type="button" class="btn btn-sm btn-light ms-auto" data-bs-dismiss="modal" aria-label="Cerrar">
+                <i class="fas fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="modal-body">
+            <div class="img-stage" id="imgStage">
+            <img id="modalImage" src="" alt="Vista previa">
+            </div>
+        </div>
+        </div>
+    </div>
+    </div>
+
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     // Scripts anteriores se mantienen igual
@@ -1017,6 +1100,28 @@ $offset = ($page - 1) * $items_per_page;
             return false;
         }
     });
+
+// ========= Modal Imagen (solo abrir/cerrar) =========
+(function(){
+  const imageModalEl = document.getElementById('imageModal');
+  const modalImage = document.getElementById('modalImage');
+
+  document.addEventListener('click', function(e){
+    const img = e.target.closest('.item-img');
+    if(!img) return;
+
+    const src = img.getAttribute('data-fullsrc') || img.getAttribute('src');
+    if(!src) return;
+
+    modalImage.src = src;
+    bootstrap.Modal.getOrCreateInstance(imageModalEl).show();
+  });
+
+  imageModalEl.addEventListener('hidden.bs.modal', () => {
+    modalImage.src = '';
+  });
+})();
+
     </script>
     <?php include("footer.php"); ?>
 </body>
