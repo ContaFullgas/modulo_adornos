@@ -1,9 +1,24 @@
 <?php
 require_once __DIR__ . '/../config/auth.php';
-require_login(); // ahora permitimos que usuarios autenticados (no solo admin) accedan
+require_login(); // usuarios autenticados
 
 require_once __DIR__ . '/lib/fpdf/fpdf.php';
 
+/**
+ * Debug (opcional):
+ * abre el reporte con: report_pdf.php?type=reservations&debug=1
+ */
+$DEBUG_IMAGES = (isset($_GET['debug']) && $_GET['debug'] == '1');
+
+/**
+ * Log helper (se va al error_log del servidor).
+ * Si quieres, puedes redirigir a un archivo con ini_set('error_log', 'ruta.log');
+ */
+function log_img($msg){
+    error_log("[REPORT_PDF] " . $msg);
+}
+
+// ----------------------------------------------------
 $type = $_GET['type'] ?? 'reservations';
 
 $user = current_user();
@@ -14,28 +29,28 @@ $deptParam = isset($_GET['dept']) ? intval($_GET['dept']) : 0;
 $deptFilterSQL = ''; // por defecto sin filtro
 
 if($isAdmin){
-    // admin: puede pedir un dept concreto mediante ?dept=ID
     if($deptParam > 0){
         $deptFilterSQL = "WHERE r.dept_id = " . $deptParam;
     } else {
-        $deptFilterSQL = ""; // todo
+        $deptFilterSQL = "";
     }
 } else {
-    // usuario no-admin: forzar filtro a su department_id (si tiene)
     $userDept = !empty($user['department_id']) ? intval($user['department_id']) : 0;
     if($userDept > 0){
         $deptFilterSQL = "WHERE r.dept_id = " . $userDept;
     } else {
-        // Si prefieres denegar el acceso cuando el usuario no tiene dept asignado,
-        // reemplaza las siguientes dos líneas por:
-        // http_response_code(403); echo "Acceso denegado: sin departamento asignado."; exit;
-        $deptFilterSQL = ""; // por ahora mostramos todo si no tiene dept (opcional cambiar)
+        $deptFilterSQL = ""; // opcional: mostrar todo si no tiene dept
     }
 }
 
 // ---------- FPDF y helpers ----------
 $pdf = new FPDF('P','mm','A4');
 $pdf->SetAutoPageBreak(true, 12);
+
+/**
+ * Guardaremos temporales para borrarlos al final
+ */
+$tmpImagesToDelete = [];
 
 function toPdf($s){
     if($s === null) return '';
@@ -80,6 +95,7 @@ function cellFitText($pdf, $w, $h, $txt, $align='L', $fontName='Arial', $style='
     $pdf->SetFont($fontName, $style, $size);
     $maxWidth = $w - 2;
     $strWidth = $pdf->GetStringWidth($txt);
+
     while($strWidth > $maxWidth && $size > $minSize){
         $size -= 0.5;
         $pdf->SetFont($fontName, $style, $size);
@@ -96,6 +112,51 @@ function cellFitText($pdf, $w, $h, $txt, $align='L', $fontName='Arial', $style='
     $pdf->SetFont('Arial', '', 9);
 }
 
+/**
+ * Convierte PNG “problemáticos” a JPG baseline (fondo blanco) para que FPDF no falle.
+ * Retorna la ruta a usar (original o temporal). Si crea temporal, lo agrega a $tmpImagesToDelete.
+ */
+function fpdfSafeImagePath($imgPath, &$tmpImagesToDelete){
+    if(!file_exists($imgPath)) return null;
+
+    $info = @getimagesize($imgPath);
+    if(!$info || empty($info['mime'])) return null;
+
+    // Si es PNG, normalizar a JPG (evita problemas de alpha/bit-depth)
+    if($info['mime'] === 'image/png'){
+        if(!function_exists('imagecreatefrompng') || !function_exists('imagejpeg')){
+            // No hay GD: no podemos convertir, devolvemos original (podría fallar en FPDF)
+            return $imgPath;
+        }
+
+        $im = @imagecreatefrompng($imgPath);
+        if(!$im) return null;
+
+        $w = imagesx($im);
+        $h = imagesy($im);
+
+        $bg = imagecreatetruecolor($w, $h);
+        $white = imagecolorallocate($bg, 255, 255, 255);
+        imagefill($bg, 0, 0, $white);
+        imagecopy($bg, $im, 0, 0, 0, 0, $w, $h);
+
+        $tmp = rtrim(sys_get_temp_dir(), '/\\') . DIRECTORY_SEPARATOR . 'fpdf_' . md5($imgPath) . '.jpg';
+        @imagejpeg($bg, $tmp, 85);
+
+        imagedestroy($im);
+        imagedestroy($bg);
+
+        if(file_exists($tmp)){
+            $tmpImagesToDelete[] = $tmp;
+            return $tmp;
+        }
+        return null;
+    }
+
+    // JPG/GIF típicos
+    return $imgPath;
+}
+
 // ---------- generar PDF ----------
 $pdf->AddPage();
 $pdf->SetFont('Arial','B',14);
@@ -104,7 +165,6 @@ $pdf->Cell(0,10, toPdf($title), 0,1,'C');
 $pdf->Ln(2);
 
 if($type === 'reservations'){
-    // construimos la query usando $deptFilterSQL (vacío o con WHERE)
     $whereClause = $deptFilterSQL ? $deptFilterSQL : '';
     $qStr = "
         SELECT r.*, i.code AS item_code, i.description AS item_description, i.image AS item_image,
@@ -120,6 +180,8 @@ if($type === 'reservations'){
     if(!$q){
         $pdf->SetFont('Arial','',12);
         $pdf->Cell(0,6, toPdf('Error en la consulta: ' . $conn->error), 0,1);
+        // limpiar temporales
+        foreach($tmpImagesToDelete as $t){ @unlink($t); }
         $pdf->Output('I','reporte_reservas.pdf');
         exit;
     }
@@ -147,17 +209,44 @@ if($type === 'reservations'){
         $status = toPdf($row['status'] ?? '');
         $date = toPdf($row['reserved_at'] ?? '');
 
-        $imageFile = $row['item_image'] ?? '';
+        // --- imagen ---
+        $imageFile = trim((string)($row['item_image'] ?? ''));
+        $imageFile = basename($imageFile); // evita rutas guardadas en BD (uploads/... o /uploads/...)
+
         $imgPath = __DIR__ . '/uploads/' . $imageFile;
 
         $pdf->Cell($w['dept'], $rowH, $dept, 1, 0, 'L');
 
         $xBefore = $pdf->GetX(); $yBefore = $pdf->GetY();
         $pdf->Cell($w['photo'], $rowH, '', 1, 0, 'C');
-        if(!empty($imageFile) && file_exists($imgPath)){
-            $imgX = $xBefore + ($w['photo'] - $imgW)/2;
-            $imgY = $yBefore + ($rowH - $imgH)/2;
-            try { $pdf->Image($imgPath, $imgX, $imgY, $imgW, $imgH); } catch(Exception $e){}
+
+        if(!empty($imageFile)){
+            if(file_exists($imgPath)){
+                $imgX = $xBefore + ($w['photo'] - $imgW)/2;
+                $imgY = $yBefore + ($rowH - $imgH)/2;
+
+                if($DEBUG_IMAGES){
+                    $info = @getimagesize($imgPath);
+                    log_img("IMG existe: {$imgPath} | " . json_encode($info));
+                }
+
+                $safePath = fpdfSafeImagePath($imgPath, $tmpImagesToDelete);
+
+                try {
+                    if($safePath){
+                        $pdf->Image($safePath, $imgX, $imgY, $imgW, $imgH);
+                    } else if($DEBUG_IMAGES){
+                        log_img("No se pudo preparar imagen: {$imgPath}");
+                    }
+                } catch (Throwable $e) {
+                    log_img("FPDF Image ERROR: {$imgPath} | " . $e->getMessage());
+                }
+
+            } else {
+                if($DEBUG_IMAGES){
+                    log_img("IMG NO EXISTE: '{$imageFile}' => {$imgPath}");
+                }
+            }
         }
 
         $pdf->Cell($w['code'], $rowH, $code, 1, 0, 'C');
@@ -189,6 +278,7 @@ elseif($type === 'returns'){
     if(!$q){
         $pdf->SetFont('Arial','',12);
         $pdf->Cell(0,6, toPdf('Error en la consulta: ' . $conn->error), 0,1);
+        foreach($tmpImagesToDelete as $t){ @unlink($t); }
         $pdf->Output('I','reporte_returns.pdf');
         exit;
     }
@@ -213,17 +303,45 @@ elseif($type === 'returns'){
         $qty = (int)($row['quantity'] ?? 0);
         $userName = toPdf($row['handled_by_name'] ?? '');
         $date = toPdf($row['returned_at'] ?? '');
-        $imageFile = $row['item_image'] ?? '';
+
+        // --- imagen ---
+        $imageFile = trim((string)($row['item_image'] ?? ''));
+        $imageFile = basename($imageFile);
+
         $imgPath = __DIR__ . '/uploads/' . $imageFile;
 
         $pdf->Cell($w['dept'], $rowH, $dept, 1, 0, 'L');
 
         $xBefore = $pdf->GetX(); $yBefore = $pdf->GetY();
         $pdf->Cell($w['photo'], $rowH, '', 1, 0, 'C');
-        if(!empty($imageFile) && file_exists($imgPath)){
-            $imgX = $xBefore + ($w['photo'] - $imgW)/2;
-            $imgY = $yBefore + ($rowH - $imgH)/2;
-            try { $pdf->Image($imgPath, $imgX, $imgY, $imgW, $imgH); } catch(Exception $e){}
+
+        if(!empty($imageFile)){
+            if(file_exists($imgPath)){
+                $imgX = $xBefore + ($w['photo'] - $imgW)/2;
+                $imgY = $yBefore + ($rowH - $imgH)/2;
+
+                if($DEBUG_IMAGES){
+                    $info = @getimagesize($imgPath);
+                    log_img("IMG existe: {$imgPath} | " . json_encode($info));
+                }
+
+                $safePath = fpdfSafeImagePath($imgPath, $tmpImagesToDelete);
+
+                try {
+                    if($safePath){
+                        $pdf->Image($safePath, $imgX, $imgY, $imgW, $imgH);
+                    } else if($DEBUG_IMAGES){
+                        log_img("No se pudo preparar imagen: {$imgPath}");
+                    }
+                } catch (Throwable $e) {
+                    log_img("FPDF Image ERROR: {$imgPath} | " . $e->getMessage());
+                }
+
+            } else {
+                if($DEBUG_IMAGES){
+                    log_img("IMG NO EXISTE: '{$imageFile}' => {$imgPath}");
+                }
+            }
         }
 
         $pdf->Cell($w['code'], $rowH, $code, 1, 0, 'C');
@@ -256,6 +374,11 @@ else {
     } else {
         $pdf->Cell(0,6, toPdf('Error en la consulta: ' . $conn->error), 0,1);
     }
+}
+
+// ---- limpiar temporales antes de enviar el PDF ----
+foreach($tmpImagesToDelete as $t){
+    @unlink($t);
 }
 
 $pdf->Output('I','reporte_'.$type.'.pdf');
