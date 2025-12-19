@@ -380,6 +380,56 @@ $offset = ($page - 1) * $items_per_page;
         -webkit-box-orient: vertical;
         overflow: hidden;
     }
+
+    /* Animación suave para el modal */
+    #imageModal .modal-content {
+        animation: slideIn 0.3s ease-out;
+        border-radius: 20px;
+        overflow: hidden;
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Backdrop oscuro */
+    #imageModal.modal.show {
+        background-color: rgba(0, 0, 0, 0.75);
+    }
+
+    /* Efecto hover en el botón de cerrar */
+    #imageModal .btn-close-white {
+        transition: transform 0.2s, opacity 0.2s;
+        opacity: 0.9;
+    }
+
+    #imageModal .btn-close-white:hover {
+        transform: rotate(90deg);
+        opacity: 1;
+    }
+
+    /* Imagen redondeada con sombra */
+    #imageModal #modalImage {
+        transition: transform 0.3s ease;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    #imageModal #modalImage:hover {
+        transform: scale(1.02);
+    }
+
+    /* Efecto glow en el icono */
+    #imageModal .modal-title .fa-image {
+        filter: drop-shadow(0 0 6px rgba(76, 175, 80, 0.6));
+    }
+
     </style>
 </head>
 
@@ -896,22 +946,30 @@ $offset = ($page - 1) * $items_per_page;
     </div>
 
     <!-- Modal para ver imagen -->
-    <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content">
-                <div class="modal-header px-3 py-2 justify-content-end">
-                    <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal" aria-label="Cerrar">
-                        <i class="fas fa-xmark"></i>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="img-stage" id="imgStage">
-                        <img id="modalImage" src="" alt="Vista previa">
-                    </div>
-                </div>
+<div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg" style="background: #e6ffe6;">
+            <!-- Header mejorado -->
+            <div class="modal-header border-0 px-4 py-3" style="background: #2d5a3d;">
+                <h5 class="modal-title text-white mb-0">
+                    <i class="fas fa-image me-2" style="color: #4caf50;"></i>
+                    Vista previa
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            
+            <!-- Body con imagen -->
+            <div class="modal-body p-4">
+                <img id="modalImage" 
+                     src="" 
+                     alt="Vista previa" 
+                     class="img-fluid w-100 h-100 rounded-4" 
+                     style="object-fit: contain; max-height: 70vh;">
             </div>
         </div>
     </div>
+</div>
+
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
