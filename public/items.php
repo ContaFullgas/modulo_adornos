@@ -486,13 +486,21 @@ $offset = ($page - 1) * $items_per_page;
                     $celebration_id = (int)($row['celebration_id'] ?? 0);
 
                     $stockClass = ($avail <= 0) ? 'out-of-stock' : '';
+
+                    $cname = '';
+                    if($celebration_id){
+                        $cname = $conn->query("SELECT name FROM celebrations WHERE id = " . $celebration_id)->fetch_assoc()['name'] ?? '';
+                    }
+
+                    $dept_list = $reserved_map[$item_id] ?? [];
             ?>
-            <div class="col-sm-6 col-lg-4 col-xl-3">
+            <div class="col-sm-6 col-lg-4 col-xl-3" id="item-col-<?= $item_id ?>">
                 <div class="card item-card <?= $stockClass ?>" id="item-card-<?= $item_id ?>">
 
-                    <div class="card-img-wrapper">
+                    <div class="card-img-wrapper" id="imgwrap-<?= $item_id ?>">
                         <?php if(!empty($image)): ?>
                         <img
+                            id="item-img-<?= $item_id ?>"
                             src="uploads/<?= htmlspecialchars($image) ?>"
                             alt="Adorno"
                             class="item-img"
@@ -500,7 +508,7 @@ $offset = ($page - 1) * $items_per_page;
                             style="cursor: zoom-in;"
                         >
                         <?php else: ?>
-                        <div class="d-flex align-items-center justify-content-center h-100 bg-light text-secondary">
+                        <div class="d-flex align-items-center justify-content-center h-100 bg-light text-secondary" id="noimg-<?= $item_id ?>">
                             <i class="fas fa-image fa-3x opacity-25"></i>
                         </div>
                         <?php endif; ?>
@@ -510,28 +518,25 @@ $offset = ($page - 1) * $items_per_page;
                             <span class="badge bg-danger shadow-sm"><i class="fas fa-ban me-1"></i>Agotado</span>
                         </div>
 
-                        <?php if($celebration_id):
-                            $cname = $conn->query("SELECT name FROM celebrations WHERE id = " . $celebration_id)->fetch_assoc()['name'] ?? '';
-                            if($cname): ?>
-                        <div class="badge-overlay">
+                        <!-- Celebración badge (SIEMPRE existe) -->
+                        <div class="badge-overlay" id="celebration-badge-<?= $item_id ?>" style="<?= $cname ? '' : 'display:none;' ?>">
                             <?= htmlspecialchars($cname) ?>
                         </div>
-                        <?php endif; endif; ?>
                     </div>
 
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start">
-                            <h5 class="item-code">Código: <?= $code ?></h5>
+                            <h5 class="item-code" id="item-code-<?= $item_id ?>">Código: <?= $code ?></h5>
                         </div>
 
-                        <p class="item-desc text-truncate-2">
+                        <p class="item-desc text-truncate-2" id="item-desc-<?= $item_id ?>">
                             <?= !empty($desc) ? nl2br(htmlspecialchars($desc)) : '<em class="text-muted small">Sin descripción</em>' ?>
                         </p>
 
                         <div class="stats-container">
                             <div class="stat-item border-end w-50">
                                 <span class="text-muted small">Total</span>
-                                <span class="stat-value"><?= $total ?></span>
+                                <span class="stat-value" id="total-<?= $item_id ?>"><?= $total ?></span>
                             </div>
                             <div class="stat-item w-50">
                                 <span class="text-muted small">Disponibles</span>
@@ -540,9 +545,6 @@ $offset = ($page - 1) * $items_per_page;
                             </div>
                         </div>
 
-                        <?php
-                        $dept_list = $reserved_map[$item_id] ?? [];
-                        ?>
                         <!-- Apartado por (SIEMPRE existe, solo se muestra/oculta) -->
                         <div class="reserved-info" id="reserved-info-<?= $item_id ?>" style="<?= empty($dept_list) ? 'display:none;' : '' ?>">
                             <i class="fas fa-lock me-1"></i> <strong>Apartado por:</strong><br>
@@ -580,21 +582,31 @@ $offset = ($page - 1) * $items_per_page;
                                 </button>
                                 <ul class="dropdown-menu">
                                     <li>
-                                        <button class="dropdown-item" data-bs-toggle="modal"
-                                            data-bs-target="#editItemModal" data-id="<?= $item_id ?>"
+                                        <button
+                                            class="dropdown-item js-open-edit"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#editItemModal"
+                                            data-id="<?= $item_id ?>"
                                             data-code="<?= $code ?>"
                                             data-description="<?= htmlspecialchars($row['description'], ENT_QUOTES) ?>"
-                                            data-total="<?= $total ?>" data-available="<?= $avail ?>"
+                                            data-total="<?= $total ?>"
+                                            data-available="<?= $avail ?>"
                                             data-image="<?= htmlspecialchars($image, ENT_QUOTES) ?>"
-                                            data-celebration="<?= $celebration_id ?>">
+                                            data-celebration="<?= $celebration_id ?>"
+                                        >
                                             <i class="fas fa-pen me-2 text-warning"></i> Editar
                                         </button>
                                     </li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li>
-                                        <button class="dropdown-item text-danger" type="button" data-bs-toggle="modal"
-                                            data-bs-target="#deleteConfirmModal" data-id="<?= $item_id ?>"
-                                            data-code="<?= $code ?>">
+                                        <button
+                                            class="dropdown-item text-danger js-open-delete"
+                                            type="button"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#deleteConfirmModal"
+                                            data-id="<?= $item_id ?>"
+                                            data-code="<?= $code ?>"
+                                        >
                                             <i class="fas fa-trash me-2"></i> Eliminar
                                         </button>
                                     </li>
@@ -640,7 +652,7 @@ $offset = ($page - 1) * $items_per_page;
 
     </div>
 
-    <!-- ====== MODALES (los tuyos igual) ====== -->
+    <!-- ====== MODALES ====== -->
 
     <div class="modal fade" id="addItemModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;">
@@ -717,6 +729,7 @@ $offset = ($page - 1) * $items_per_page;
 
     <div class="modal fade" id="editItemModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;">
+            <!-- action original como fallback; AJAX intercepta el submit -->
             <form method="POST" action="item_action.php?action=edit" enctype="multipart/form-data" class="modal-content"
                 id="editItemForm">
 
@@ -804,7 +817,8 @@ $offset = ($page - 1) * $items_per_page;
 
     <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;">
-            <form method="POST" action="item_action.php?action=delete" class="modal-content">
+            <!-- action original como fallback; AJAX intercepta el submit -->
+            <form method="POST" action="item_action.php?action=delete" class="modal-content" id="deleteItemForm">
                 <div class="modal-header border-0 pb-0">
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
@@ -901,7 +915,22 @@ $offset = ($page - 1) * $items_per_page;
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-    // Imagen preview
+    // ========= Helpers =========
+    function nl2brSafe(text){
+        if (text == null) return '';
+        return String(text).replace(/\n/g, '<br>');
+    }
+
+    function escapeHtml(str){
+        return String(str)
+            .replaceAll('&','&amp;')
+            .replaceAll('<','&lt;')
+            .replaceAll('>','&gt;')
+            .replaceAll('"','&quot;')
+            .replaceAll("'","&#039;");
+    }
+
+    // Imagen preview (add)
     const addImage = document.getElementById('add_image');
     const addPreview = document.getElementById('add_preview');
     if (addImage) {
@@ -921,7 +950,7 @@ $offset = ($page - 1) * $items_per_page;
         });
     }
 
-    // Uppercase code
+    // Uppercase code (add)
     const addCode = document.getElementById('add_code');
     if (addCode) {
         addCode.addEventListener('input', () => addCode.value = addCode.value.toUpperCase().replace(/\s+/g, ''));
@@ -938,56 +967,11 @@ $offset = ($page - 1) * $items_per_page;
         return true;
     });
 
-    // Edit modal logic
-    var editModal = document.getElementById('editItemModal');
-    editModal?.addEventListener('show.bs.modal', function(event) {
-        var button = event.relatedTarget;
-        var id = button.getAttribute('data-id');
-        var code = button.getAttribute('data-code');
-        var description = button.getAttribute('data-description') || '';
-        var total = button.getAttribute('data-total') || '1';
-        var available = button.getAttribute('data-available') || '0';
-        var image = button.getAttribute('data-image') || '';
-        var celebration = button.getAttribute('data-celebration') || '';
-
-        document.getElementById('edit_id').value = id;
-        document.getElementById('edit_code').value = code;
-        document.getElementById('edit_total').value = total;
-        document.getElementById('edit_description').value = description;
-        document.getElementById('edit_existing_image').value = image;
-        document.getElementById('edit_celebration').value = celebration;
-
-        var editPreview = document.getElementById('edit_preview');
-        if (image) {
-            editPreview.src = 'uploads/' + image;
-            editPreview.style.display = 'block';
-        } else {
-            editPreview.src = '#';
-            editPreview.style.display = 'none';
-        }
-
-        var reserved = parseInt(total, 10) - parseInt(available, 10);
-        if (reserved < 0) reserved = 0;
-        document.getElementById('edit_reserved_text').innerHTML =
-            '<i class="fas fa-info-circle text-warning"></i> Reservados: <strong>' + reserved + '</strong>';
-    });
-
-    // Modal Eliminar
-    var deleteModal = document.getElementById('deleteConfirmModal');
-    deleteModal?.addEventListener('show.bs.modal', function(event) {
-        var button = event.relatedTarget;
-        var id = button.getAttribute('data-id');
-        var code = button.getAttribute('data-code');
-
-        document.getElementById('delete_item_id').value = id;
-        document.getElementById('delete_item_code').textContent = '«' + code + '»';
-    });
-
-    // Preview Editar
-    const editImage = document.getElementById('edit_image');
+    // Preview Editar (solo visual)
+    const editImageInput = document.getElementById('edit_image');
     const editPreview = document.getElementById('edit_preview');
-    if (editImage) {
-        editImage.addEventListener('change', function() {
+    if (editImageInput) {
+        editImageInput.addEventListener('change', function() {
             const f = this.files[0];
             if (!f || !f.type.startsWith('image/')) return;
             const reader = new FileReader();
@@ -999,13 +983,57 @@ $offset = ($page - 1) * $items_per_page;
         });
     }
 
-    // Reserve modal: set data
-    var reserveModal = document.getElementById('reserveModal');
-    reserveModal?.addEventListener('show.bs.modal', function(event) {
-        var button = event.relatedTarget;
-        var itemId = button.getAttribute('data-itemid');
-        var code = button.getAttribute('data-code');
-        var available = parseInt(button.getAttribute('data-available') || '0', 10);
+    // ========= Modal Edit: cargar datos =========
+    const editModalEl = document.getElementById('editItemModal');
+    editModalEl?.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        const id = button.getAttribute('data-id');
+        const code = button.getAttribute('data-code');
+        const description = button.getAttribute('data-description') || '';
+        const total = button.getAttribute('data-total') || '1';
+        const available = button.getAttribute('data-available') || '0';
+        const image = button.getAttribute('data-image') || '';
+        const celebration = button.getAttribute('data-celebration') || '';
+
+        document.getElementById('edit_id').value = id;
+        document.getElementById('edit_code').value = code;
+        document.getElementById('edit_total').value = total;
+        document.getElementById('edit_description').value = description;
+        document.getElementById('edit_existing_image').value = image;
+        document.getElementById('edit_celebration').value = celebration;
+
+        if (image) {
+            editPreview.src = 'uploads/' + image;
+            editPreview.style.display = 'block';
+        } else {
+            editPreview.src = '#';
+            editPreview.style.display = 'none';
+        }
+
+        let reserved = parseInt(total, 10) - parseInt(available, 10);
+        if (reserved < 0) reserved = 0;
+        document.getElementById('edit_reserved_text').innerHTML =
+            '<i class="fas fa-info-circle text-warning"></i> Reservados: <strong>' + reserved + '</strong>';
+    });
+
+    // ========= Modal Delete: cargar datos =========
+    const deleteModalEl = document.getElementById('deleteConfirmModal');
+    deleteModalEl?.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        const id = button.getAttribute('data-id');
+        const code = button.getAttribute('data-code');
+
+        document.getElementById('delete_item_id').value = id;
+        document.getElementById('delete_item_code').textContent = '«' + code + '»';
+    });
+
+    // ========= Modal Reservar: set data =========
+    const reserveModalEl = document.getElementById('reserveModal');
+    reserveModalEl?.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        const itemId = button.getAttribute('data-itemid');
+        const code = button.getAttribute('data-code');
+        const available = parseInt(button.getAttribute('data-available') || '0', 10);
 
         document.getElementById('modal_item_id').value = itemId;
         document.getElementById('modal_item_code').value = code;
@@ -1014,20 +1042,19 @@ $offset = ($page - 1) * $items_per_page;
         document.getElementById('modal_qty').value = Math.min(1, available);
         document.getElementById('modal_qty').max = Math.max(1, available);
 
-        var availText = document.getElementById('modal_available_text');
+        const availText = document.getElementById('modal_available_text');
         availText.textContent = 'Stock disponible: ' + available;
         if (available < 3) availText.className = 'text-danger fw-bold';
         else availText.className = 'text-success fw-bold';
 
-        var deptSelect = document.getElementById('modal_dept_select');
-
+        const deptSelect = document.getElementById('modal_dept_select');
         <?php if(current_user()['role'] === 'usuario' && !empty(current_user()['department_id'])): ?>
         deptSelect.value = "<?= (int)current_user()['department_id'] ?>";
         deptSelect.disabled = true;
 
-        var existingHidden = document.getElementById('modal_dept_hidden');
+        let existingHidden = document.getElementById('modal_dept_hidden');
         if (!existingHidden) {
-            var h = document.createElement('input');
+            const h = document.createElement('input');
             h.type = 'hidden';
             h.name = 'dept_id';
             h.id = 'modal_dept_hidden';
@@ -1038,12 +1065,12 @@ $offset = ($page - 1) * $items_per_page;
         }
         <?php else: ?>
         if (deptSelect.disabled) deptSelect.disabled = false;
-        var existingHidden = document.getElementById('modal_dept_hidden');
+        const existingHidden = document.getElementById('modal_dept_hidden');
         if (existingHidden) existingHidden.remove();
         <?php endif; ?>
     });
 
-    // ====== RESERVAR SIN SALIR (AJAX) ======
+    // ========= RESERVAR SIN SALIR (AJAX) =========
     document.getElementById('reserveForm')?.addEventListener('submit', async function(e) {
         e.preventDefault();
 
@@ -1080,7 +1107,6 @@ $offset = ($page - 1) * $items_per_page;
             }
 
             // Cerrar modal
-            const reserveModalEl = document.getElementById('reserveModal');
             const modalInstance = bootstrap.Modal.getInstance(reserveModalEl);
             if (modalInstance) modalInstance.hide();
 
@@ -1110,7 +1136,6 @@ $offset = ($page - 1) * $items_per_page;
                     reserveBtn.removeAttribute('data-bs-target');
                     reserveBtn.innerHTML = 'No disponible';
                 } else {
-                    // si algún día vuelve a habilitarse (por ajuste manual), lo dejamos listo
                     reserveBtn.disabled = false;
                     reserveBtn.setAttribute('data-bs-toggle','modal');
                     reserveBtn.setAttribute('data-bs-target','#reserveModal');
@@ -1144,6 +1169,201 @@ $offset = ($page - 1) * $items_per_page;
             console.error(err);
             alert('Error de red o del servidor al reservar.');
         } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = oldHtml;
+        }
+    });
+
+    // ========= EDITAR SIN SALIR (AJAX) =========
+    document.getElementById('editItemForm')?.addEventListener('submit', async function(e){
+        e.preventDefault();
+
+        const form = this;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const oldHtml = submitBtn.innerHTML;
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = 'Guardando...';
+
+        try{
+            const fd = new FormData(form);
+
+            // IMPORTANTE: este endpoint lo crearás en el paso 3
+            const resp = await fetch('ajax/item_action_ajax.php?action=edit', {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            const json = await resp.json();
+
+            if(!json.ok){
+                alert(json.message || 'No se pudo editar.');
+                return;
+            }
+
+            const data = json.data;
+            const itemId = data.item_id;
+
+            // Cerrar modal
+            const inst = bootstrap.Modal.getInstance(editModalEl);
+            if(inst) inst.hide();
+
+            // Actualizar tarjeta: código / desc
+            const codeEl = document.getElementById('item-code-' + itemId);
+            if(codeEl) codeEl.textContent = 'Código: ' + (data.code || '');
+
+            const descEl = document.getElementById('item-desc-' + itemId);
+            if(descEl){
+                if((data.description || '').trim() === ''){
+                    descEl.innerHTML = '<em class="text-muted small">Sin descripción</em>';
+                } else {
+                    descEl.innerHTML = nl2brSafe(escapeHtml(data.description));
+                }
+            }
+
+            // Total / disponibles
+            const totalEl = document.getElementById('total-' + itemId);
+            if(totalEl) totalEl.textContent = String(data.total_quantity ?? '');
+
+            const availEl = document.getElementById('avail-' + itemId);
+            const avail = parseInt(data.available_quantity ?? 0, 10);
+            if(availEl){
+                availEl.textContent = String(avail);
+                availEl.classList.remove('text-success','text-danger');
+                availEl.classList.add(avail > 0 ? 'text-success' : 'text-danger');
+            }
+
+            // Imagen (si viene una nueva ruta/nombre)
+            if(data.image){
+                const img = document.getElementById('item-img-' + itemId);
+                const wrap = document.getElementById('imgwrap-' + itemId);
+                const noimg = document.getElementById('noimg-' + itemId);
+
+                const src = 'uploads/' + data.image;
+
+                if(img){
+                    img.src = src;
+                    img.setAttribute('data-fullsrc', src);
+                    img.style.cursor = 'zoom-in';
+                } else if(wrap){
+                    // si antes no había imagen, crearla
+                    if(noimg) noimg.remove();
+                    const newImg = document.createElement('img');
+                    newImg.id = 'item-img-' + itemId;
+                    newImg.src = src;
+                    newImg.alt = 'Adorno';
+                    newImg.className = 'item-img';
+                    newImg.setAttribute('data-fullsrc', src);
+                    newImg.style.cursor = 'zoom-in';
+                    wrap.prepend(newImg);
+                }
+            }
+
+            // Celebración badge
+            const badge = document.getElementById('celebration-badge-' + itemId);
+            if(badge){
+                const cname = (data.celebration_name || '').trim();
+                if(cname){
+                    badge.textContent = cname;
+                    badge.style.display = '';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+
+            // Botón reservar + agotado
+            const reserveBtn = document.getElementById('reserve-btn-' + itemId);
+            const overlay = document.getElementById('status-overlay-' + itemId);
+            const card = document.getElementById('item-card-' + itemId);
+
+            if(reserveBtn){
+                reserveBtn.setAttribute('data-available', String(avail));
+                reserveBtn.setAttribute('data-code', data.code || reserveBtn.getAttribute('data-code') || '');
+
+                if(avail <= 0){
+                    reserveBtn.classList.remove('btn-primary','btn-reserve');
+                    reserveBtn.classList.add('btn-secondary');
+                    reserveBtn.disabled = true;
+                    reserveBtn.removeAttribute('data-bs-toggle');
+                    reserveBtn.removeAttribute('data-bs-target');
+                    reserveBtn.innerHTML = 'No disponible';
+                    if(card) card.classList.add('out-of-stock');
+                    if(overlay) overlay.style.display = '';
+                } else {
+                    reserveBtn.disabled = false;
+                    reserveBtn.classList.remove('btn-secondary');
+                    reserveBtn.classList.add('btn-primary','btn-reserve');
+                    reserveBtn.setAttribute('data-bs-toggle','modal');
+                    reserveBtn.setAttribute('data-bs-target','#reserveModal');
+                    reserveBtn.innerHTML = '<i class="fas fa-cart-plus me-1"></i> Reservar';
+                    if(overlay) overlay.style.display = 'none';
+                    if(card) card.classList.remove('out-of-stock'); // opcional
+                }
+            }
+
+            // Actualizar dataset del botón "Editar" (para que la siguiente vez cargue lo nuevo)
+            const editBtn = document.querySelector(`.js-open-edit[data-id="${itemId}"]`);
+            if(editBtn){
+                editBtn.setAttribute('data-code', data.code || '');
+                editBtn.setAttribute('data-description', data.description || '');
+                editBtn.setAttribute('data-total', String(data.total_quantity ?? ''));
+                editBtn.setAttribute('data-available', String(data.available_quantity ?? ''));
+                editBtn.setAttribute('data-image', data.image || editBtn.getAttribute('data-image') || '');
+                editBtn.setAttribute('data-celebration', String(data.celebration_id ?? ''));
+            }
+
+        }catch(err){
+            console.error(err);
+            alert('Error de red o del servidor al editar.');
+        }finally{
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = oldHtml;
+        }
+    });
+
+    // ========= ELIMINAR SIN SALIR (AJAX) =========
+    document.getElementById('deleteItemForm')?.addEventListener('submit', async function(e){
+        e.preventDefault();
+
+        const form = this;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const oldHtml = submitBtn.innerHTML;
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = 'Eliminando...';
+
+        try{
+            const fd = new FormData(form);
+
+            // IMPORTANTE: este endpoint lo crearás en el paso 3
+            const resp = await fetch('ajax/item_action_ajax.php?action=delete', {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            const json = await resp.json();
+
+            if(!json.ok){
+                alert(json.message || 'No se pudo eliminar.');
+                return;
+            }
+
+            const itemId = json.data?.item_id;
+
+            // Cerrar modal
+            const inst = bootstrap.Modal.getInstance(deleteModalEl);
+            if(inst) inst.hide();
+
+            // Quitar del DOM
+            const col = document.getElementById('item-col-' + itemId);
+            if(col) col.remove();
+
+        }catch(err){
+            console.error(err);
+            alert('Error de red o del servidor al eliminar.');
+        }finally{
             submitBtn.disabled = false;
             submitBtn.innerHTML = oldHtml;
         }
