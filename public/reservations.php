@@ -10,14 +10,14 @@ $offset = ($page - 1) * $items_per_page;
 
 // --- FILTROS Y BÚSQUEDA ---
 $whereConditions = [];
-$user_dept_id = (int)current_user()['department_id'];
+$user_dept_id = (int)(current_user()['department_id'] ?? 0);
 
 // 1. Filtro de Rol
 if (current_user()['role'] !== 'admin') {
     if ($user_dept_id > 0) {
         $whereConditions[] = "r.dept_id = $user_dept_id";
     } else {
-        $whereConditions[] = "1 = 0"; 
+        $whereConditions[] = "1 = 0";
     }
 }
 
@@ -47,15 +47,15 @@ if (count($whereConditions) > 0) {
 }
 
 // TOTALES
-$count_sql = "SELECT COUNT(*) as total 
-              FROM reservations r 
+$count_sql = "SELECT COUNT(*) as total
+              FROM reservations r
               JOIN items i ON i.id = r.item_id
               LEFT JOIN users u ON u.id = r.user_id
               JOIN departments d ON d.id = r.dept_id
               $whereClause";
 $count_res = $conn->query($count_sql);
-$total_items = $count_res ? $count_res->fetch_assoc()['total'] : 0;
-$total_pages = ceil($total_items / $items_per_page);
+$total_items = $count_res ? (int)$count_res->fetch_assoc()['total'] : 0;
+$total_pages = (int)ceil($total_items / $items_per_page);
 
 // CONSULTA PRINCIPAL
 $sql = "
@@ -71,6 +71,8 @@ $sql = "
     LIMIT $offset, $items_per_page
 ";
 $result = $conn->query($sql);
+
+$isAdminGlobal = (current_user()['role'] === 'admin');
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -365,12 +367,9 @@ $result = $conn->query($sql);
                         class="form-select form-select-sm border-secondary-subtle fw-medium text-secondary"
                         style="width: 160px;" onchange="this.form.submit()">
                         <option value="all" <?= $statusFilter === 'all' ? 'selected' : '' ?>>Todos</option>
-                        <option value="reservado" <?= $statusFilter === 'reservado' ? 'selected' : '' ?>>🔴 No Recibido
-                        </option>
-                        <option value="en_proceso" <?= $statusFilter === 'en_proceso' ? 'selected' : '' ?>>🟡 Pendiente
-                        </option>
-                        <option value="finalizado" <?= $statusFilter === 'finalizado' ? 'selected' : '' ?>>🟢 Recibido
-                        </option>
+                        <option value="reservado" <?= $statusFilter === 'reservado' ? 'selected' : '' ?>>🔴 No Recibido</option>
+                        <option value="en_proceso" <?= $statusFilter === 'en_proceso' ? 'selected' : '' ?>>🟡 Pendiente</option>
+                        <option value="finalizado" <?= $statusFilter === 'finalizado' ? 'selected' : '' ?>>🟢 Recibido</option>
                     </select>
                 </div>
                 <button type="submit" class="btn btn-dark btn-sm rounded-pill px-3">Aplicar</button>
@@ -398,37 +397,46 @@ $result = $conn->query($sql);
                     </thead>
                     <tbody>
                         <?php
-                if ($result && $result->num_rows > 0):
-                    while ($row = $result->fetch_assoc()):
-                        $rid = (int)$row['id'];
-                        $dept_name = htmlspecialchars($row['dept_name'] ?? '');
-                        $item_code = htmlspecialchars($row['item_code'] ?? '');
-                        $item_desc = trim($row['item_description'] ?? '');
-                        $item_image = $row['item_image'] ?? '';
-                        $quantity = (int)$row['quantity'];
-                        $user_name = htmlspecialchars($row['user_name'] ?? 'Usuario');
-                        $initial = strtoupper(substr($user_name, 0, 1));
-                        
-                        $status_raw = strtolower(trim($row['status'] ?? ''));
-                        $isAdmin = (current_user()['role'] === 'admin');
-                        $isMyDept = ($user_dept_id > 0 && (int)$row['dept_id'] === $user_dept_id);
-                        
-                        $selectClass = 'text-dark bg-light';
-                        if ($status_raw === 'reservado') $selectClass = 'sel-red';
-                        elseif ($status_raw === 'en proceso' || $status_raw === 'en_proceso') $selectClass = 'sel-yellow';
-                        elseif ($status_raw === 'finalizado' || $status_raw === 'devuelto') $selectClass = 'sel-green';
+                        if ($result && $result->num_rows > 0):
+                            while ($row = $result->fetch_assoc()):
+                                $rid = (int)$row['id'];
+                                $dept_name = htmlspecialchars($row['dept_name'] ?? '');
+                                $item_code = htmlspecialchars($row['item_code'] ?? '');
+                                $item_desc = trim($row['item_description'] ?? '');
+                                $item_image = $row['item_image'] ?? '';
+                                $quantity = (int)$row['quantity'];
+                                $user_name = htmlspecialchars($row['user_name'] ?? 'Usuario');
+                                $initial = strtoupper(substr($user_name, 0, 1));
 
-                        $dateStr = (new DateTime($row['reserved_at']))->format('d M, Y');
-                        $timeStr = (new DateTime($row['reserved_at']))->format('h:i A');
-                ?>
-                        <tr>
+                                // Normalizar status a: reservado | en_proceso | finalizado
+                                $status_raw = strtolower(trim((string)($row['status'] ?? 'reservado')));
+                                $status_norm = 'reservado';
+                                if ($status_raw === 'reservado') $status_norm = 'reservado';
+                                elseif ($status_raw === 'en proceso' || $status_raw === 'en_proceso') $status_norm = 'en_proceso';
+                                elseif ($status_raw === 'finalizado' || $status_raw === 'devuelto') $status_norm = 'finalizado';
+
+                                $isAdmin = $isAdminGlobal;
+                                $isMyDept = ($user_dept_id > 0 && (int)$row['dept_id'] === $user_dept_id);
+
+                                $selectClass = 'text-dark bg-light';
+                                if ($status_norm === 'reservado') $selectClass = 'sel-red';
+                                elseif ($status_norm === 'en_proceso') $selectClass = 'sel-yellow';
+                                elseif ($status_norm === 'finalizado') $selectClass = 'sel-green';
+
+                                $dateStr = (new DateTime($row['reserved_at']))->format('d M, Y');
+                                $timeStr = (new DateTime($row['reserved_at']))->format('h:i A');
+                        ?>
+                        <tr
+                            id="res-row-<?= $rid ?>"
+                            data-isadmin="<?= $isAdmin ? '1' : '0' ?>"
+                            data-ismydept="<?= $isMyDept ? '1' : '0' ?>"
+                        >
                             <td class="fw-medium"><?= $dept_name ?></td>
                             <td>
                                 <?php if(!empty($item_image)): ?>
                                 <img src="uploads/<?= htmlspecialchars($item_image) ?>" class="img-thumb" alt="img">
                                 <?php else: ?>
-                                <div
-                                    class="img-thumb d-flex align-items-center justify-content-center bg-light text-muted">
+                                <div class="img-thumb d-flex align-items-center justify-content-center bg-light text-muted">
                                     <i class="fas fa-image"></i>
                                 </div>
                                 <?php endif; ?>
@@ -451,51 +459,54 @@ $result = $conn->query($sql);
                                     <span class="fw-medium small"><?= $user_name ?></span>
                                 </div>
                             </td>
-                            <td>
-                                <?php if($status_raw === 'reservado'): ?>
-                                <span class="status-pill st-apartado">Apartado</span>
-                                <?php elseif($status_raw === 'en proceso' || $status_raw === 'en_proceso'): ?>
-                                <span class="status-pill st-proceso">En Proceso</span>
+
+                            <!-- ESTADO (se actualiza por AJAX) -->
+                            <td id="res-statuscell-<?= $rid ?>">
+                                <?php if($status_norm === 'reservado'): ?>
+                                    <span class="status-pill st-apartado">Apartado</span>
+                                <?php elseif($status_norm === 'en_proceso'): ?>
+                                    <span class="status-pill st-proceso">En Proceso</span>
                                 <?php else: ?>
-                                <span class="status-pill st-gris">Devuelto</span>
+                                    <span class="status-pill st-gris">Devuelto</span>
                                 <?php endif; ?>
                             </td>
+
                             <td>
                                 <div class="d-flex flex-column">
                                     <span class="fw-medium small text-dark"><?= $dateStr ?></span>
                                     <span class="text-muted small" style="font-size: 0.75rem;"><?= $timeStr ?></span>
                                 </div>
                             </td>
-                            <td class="text-end">
 
+                            <!-- GESTIÓN (se actualiza por AJAX) -->
+                            <td class="text-end" id="res-manage-<?= $rid ?>">
                                 <?php if ($isAdmin): ?>
-                                <select class="form-select form-select-sm admin-select <?= $selectClass ?>"
-                                    data-id="<?= $rid ?>" data-original="<?= $status_raw ?>"
-                                    onchange="openStatusModal(this)">
-                                    <option value="reservado" <?= $status_raw === 'reservado' ? 'selected' : '' ?>>🔴 No
-                                        Recibido</option>
-                                    <option value="en_proceso"
-                                        <?= ($status_raw === 'en proceso' || $status_raw === 'en_proceso') ? 'selected' : '' ?>>
-                                        🟡 Pendiente</option>
-                                    <option value="finalizado"
-                                        <?= ($status_raw === 'finalizado' || $status_raw === 'devuelto') ? 'selected' : '' ?>>
-                                        🟢 Recibido</option>
-                                </select>
-
+                                    <select
+                                        id="res-select-<?= $rid ?>"
+                                        class="form-select form-select-sm admin-select <?= $selectClass ?>"
+                                        data-id="<?= $rid ?>"
+                                        data-original="<?= $status_norm ?>"
+                                        onchange="openStatusModal(this)"
+                                    >
+                                        <option value="reservado" <?= $status_norm === 'reservado' ? 'selected' : '' ?>>🔴 No Recibido</option>
+                                        <option value="en_proceso" <?= $status_norm === 'en_proceso' ? 'selected' : '' ?>>🟡 Pendiente</option>
+                                        <option value="finalizado" <?= $status_norm === 'finalizado' ? 'selected' : '' ?>>🟢 Recibido</option>
+                                    </select>
                                 <?php else: ?>
-                                <?php if ($status_raw === 'reservado' && $isMyDept): ?>
-                                <button class="btn-outline-custom" onclick="openUserReturnModal(<?= $rid ?>)">
-                                    <i class="fas fa-undo-alt"></i> Devolver
-                                </button>
-                                <?php elseif ($status_raw === 'en proceso' || $status_raw === 'en_proceso'): ?>
-                                <span class="text-warning small fst-italic"><i class="fas fa-clock me-1"></i> Esperando
-                                    Admin</span>
-                                <?php else: ?>
-                                <span class="text-muted small"><i class="fas fa-check-double me-1"></i>
-                                    Completado</span>
+                                    <?php if ($status_norm === 'reservado' && $isMyDept): ?>
+                                        <button class="btn-outline-custom" onclick="openUserReturnModal(<?= $rid ?>)">
+                                            <i class="fas fa-undo-alt"></i> Devolver
+                                        </button>
+                                    <?php elseif ($status_norm === 'en_proceso'): ?>
+                                        <span class="text-warning small fst-italic">
+                                            <i class="fas fa-clock me-1"></i> Esperando Admin
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="text-muted small">
+                                            <i class="fas fa-check-double me-1"></i> Completado
+                                        </span>
+                                    <?php endif; ?>
                                 <?php endif; ?>
-                                <?php endif; ?>
-
                             </td>
                         </tr>
                         <?php endwhile; ?>
@@ -512,15 +523,18 @@ $result = $conn->query($sql);
         <?php if ($total_pages > 1): ?>
         <nav class="mt-4 d-flex justify-content-center">
             <ul class="pagination">
-                <li class="page-item <?= ($page <= 1) ? 'disabled' : '' ?>"><a class="page-link"
+                <li class="page-item <?= ($page <= 1) ? 'disabled' : '' ?>">
+                    <a class="page-link"
                         href="?page=<?= $page - 1 ?>&status=<?= $statusFilter ?>&q=<?= urlencode($searchQuery) ?>">&laquo;</a>
                 </li>
                 <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                <li class="page-item <?= ($page == $i) ? 'active' : '' ?>"><a class="page-link"
+                <li class="page-item <?= ($page == $i) ? 'active' : '' ?>">
+                    <a class="page-link"
                         href="?page=<?= $i ?>&status=<?= $statusFilter ?>&q=<?= urlencode($searchQuery) ?>"><?= $i ?></a>
                 </li>
                 <?php endfor; ?>
-                <li class="page-item <?= ($page >= $total_pages) ? 'disabled' : '' ?>"><a class="page-link"
+                <li class="page-item <?= ($page >= $total_pages) ? 'disabled' : '' ?>">
+                    <a class="page-link"
                         href="?page=<?= $page + 1 ?>&status=<?= $statusFilter ?>&q=<?= urlencode($searchQuery) ?>">&raquo;</a>
                 </li>
             </ul>
@@ -529,8 +543,10 @@ $result = $conn->query($sql);
 
     </div>
 
+    <!-- MODAL ADMIN -->
     <div class="modal fade" id="statusModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
+            <!-- fallback: process_return.php, pero AJAX intercepta -->
             <form method="POST" action="process_return.php" class="modal-content" id="statusForm">
                 <div class="modal-header">
                     <h5 class="modal-title fw-bold">Actualizar Estado</h5>
@@ -553,9 +569,11 @@ $result = $conn->query($sql);
         </div>
     </div>
 
+    <!-- MODAL USUARIO -->
     <div class="modal fade" id="userReturnModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
-            <form method="POST" action="process_return.php" class="modal-content">
+            <!-- fallback: process_return.php, pero AJAX intercepta -->
+            <form method="POST" action="process_return.php" class="modal-content" id="userReturnForm">
                 <div class="modal-header border-0 pb-0">
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
@@ -565,12 +583,13 @@ $result = $conn->query($sql);
                     </div>
                     <h4 class="fw-bold mb-2">¿Devolver Artículo?</h4>
                     <p class="text-muted mb-4 small">
-                        Se notificará al administrador que estás devolviendo este ítem. El estado cambiará a <strong>"En
-                            Proceso"</strong> hasta que sea recibido.
+                        Se notificará al administrador que estás devolviendo este ítem. El estado cambiará a <strong>"En Proceso"</strong>
+                        hasta que sea recibido.
                     </p>
 
                     <input type="hidden" name="reservation_id" id="user_modal_res_id">
                     <input type="hidden" name="new_status" value="en_proceso">
+
                     <div class="d-grid gap-2">
                         <button type="submit" class="btn btn-warning fw-bold text-white"
                             style="background-color: #d97706; border:none;">
@@ -589,7 +608,67 @@ $result = $conn->query($sql);
     const statusModal = new bootstrap.Modal(document.getElementById('statusModal'));
     const userReturnModal = new bootstrap.Modal(document.getElementById('userReturnModal'));
 
-    // LÓGICA ADMIN
+    function selectClassByStatus(status){
+        if(status === 'reservado') return 'sel-red';
+        if(status === 'en_proceso') return 'sel-yellow';
+        if(status === 'finalizado') return 'sel-green';
+        return 'text-dark bg-light';
+    }
+
+    function renderStatusPill(status){
+        if(status === 'reservado'){
+            return '<span class="status-pill st-apartado">Apartado</span>';
+        }
+        if(status === 'en_proceso'){
+            return '<span class="status-pill st-proceso">En Proceso</span>';
+        }
+        return '<span class="status-pill st-gris">Devuelto</span>';
+    }
+
+    function renderUserManage(status, rid, isMyDept){
+        if(status === 'reservado' && isMyDept){
+            return `<button class="btn-outline-custom" onclick="openUserReturnModal(${rid})">
+                        <i class="fas fa-undo-alt"></i> Devolver
+                    </button>`;
+        }
+        if(status === 'en_proceso'){
+            return `<span class="text-warning small fst-italic">
+                        <i class="fas fa-clock me-1"></i> Esperando Admin
+                    </span>`;
+        }
+        return `<span class="text-muted small">
+                    <i class="fas fa-check-double me-1"></i> Completado
+                </span>`;
+    }
+
+    function applyReservationUI(rid, status){
+        // status pill
+        const statusCell = document.getElementById('res-statuscell-' + rid);
+        if(statusCell) statusCell.innerHTML = renderStatusPill(status);
+
+        // gestión
+        const row = document.getElementById('res-row-' + rid);
+        const manageCell = document.getElementById('res-manage-' + rid);
+        const isAdmin = row?.getAttribute('data-isadmin') === '1';
+        const isMyDept = row?.getAttribute('data-ismydept') === '1';
+
+        if(isAdmin){
+            const sel = document.getElementById('res-select-' + rid);
+            if(sel){
+                sel.value = status;
+                sel.setAttribute('data-original', status);
+
+                sel.classList.remove('sel-red','sel-yellow','sel-green','text-dark','bg-light');
+                sel.classList.add(selectClassByStatus(status));
+            }
+        }else{
+            if(manageCell){
+                manageCell.innerHTML = renderUserManage(status, rid, isMyDept);
+            }
+        }
+    }
+
+    // LÓGICA ADMIN (modal)
     function openStatusModal(selectElement) {
         currentSelectElement = selectElement;
         const newStatus = selectElement.value;
@@ -623,7 +702,7 @@ $result = $conn->query($sql);
 
     function cancelStatusChange() {
         if (currentSelectElement) {
-            currentSelectElement.value = currentSelectElement.getAttribute('data-original');
+            currentSelectElement.value = currentSelectElement.getAttribute('data-original') || 'reservado';
         }
     }
 
@@ -632,7 +711,105 @@ $result = $conn->query($sql);
         document.getElementById('user_modal_res_id').value = id;
         userReturnModal.show();
     }
+
+    // ===== AJAX ADMIN (statusForm) =====
+    document.getElementById('statusForm')?.addEventListener('submit', async function(e){
+        e.preventDefault();
+
+        const form = this;
+        const btn = document.getElementById('btnConfirmStatus');
+        const old = btn ? btn.innerHTML : '';
+
+        if(btn){ btn.disabled = true; btn.innerHTML = 'Procesando...'; }
+
+        try{
+            const fd = new FormData(form);
+
+            const resp = await fetch('ajax/process_return_ajax.php', {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            let json;
+            try { json = await resp.json(); } catch { json = null; }
+
+            if(!resp.ok || !json || !json.ok){
+                const msg = (json && json.message) ? json.message : 'No se pudo actualizar.';
+                alert(msg);
+                cancelStatusChange();
+                return;
+            }
+
+            const rid = json.data?.reservation_id;
+            const status = (json.data?.status || '').toLowerCase();
+
+            // cerrar modal
+            statusModal.hide();
+
+            // aplicar UI
+            if(rid && status){
+                applyReservationUI(rid, status);
+            }
+
+            // limpiar referencia
+            currentSelectElement = null;
+
+        }catch(err){
+            console.error(err);
+            alert('Error de red o del servidor.');
+            cancelStatusChange();
+        }finally{
+            if(btn){ btn.disabled = false; btn.innerHTML = old; }
+        }
+    });
+
+    // ===== AJAX USUARIO (userReturnForm) =====
+    document.getElementById('userReturnForm')?.addEventListener('submit', async function(e){
+        e.preventDefault();
+
+        const form = this;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const old = submitBtn ? submitBtn.innerHTML : '';
+
+        if(submitBtn){ submitBtn.disabled = true; submitBtn.innerHTML = 'Enviando...'; }
+
+        try{
+            const fd = new FormData(form);
+
+            const resp = await fetch('ajax/process_return_ajax.php', {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            let json;
+            try { json = await resp.json(); } catch { json = null; }
+
+            if(!resp.ok || !json || !json.ok){
+                const msg = (json && json.message) ? json.message : 'No se pudo solicitar devolución.';
+                alert(msg);
+                return;
+            }
+
+            const rid = json.data?.reservation_id;
+            const status = (json.data?.status || '').toLowerCase();
+
+            userReturnModal.hide();
+
+            if(rid && status){
+                applyReservationUI(rid, status);
+            }
+
+        }catch(err){
+            console.error(err);
+            alert('Error de red o del servidor.');
+        }finally{
+            if(submitBtn){ submitBtn.disabled = false; submitBtn.innerHTML = old; }
+        }
+    });
     </script>
+
     <?php include("footer.php"); ?>
 </body>
 

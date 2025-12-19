@@ -1,4 +1,7 @@
 <?php
+
+// ESTE ARCHIVO SE SUSTITYO POR OTRO QUE UTILIZA AJAX PERO SE QUEDO COMO FALLBACK (PLAN B) POR SI FALLA EL AJAX, FAVOR DE NO ELIMINAR
+
 require_once __DIR__ . '/../config/auth.php';
 require_login();
 
