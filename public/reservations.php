@@ -173,6 +173,7 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
         border-radius: 8px;
         object-fit: cover;
         border: 1px solid #f3f4f6;
+        cursor: zoom-in;
     }
 
     .code-badge {
@@ -302,7 +303,7 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
         border-color: #f97316;
     }
 
-    /* Modales */
+    /* Modales (generales) */
     .modal-content {
         border-radius: 16px;
         border: none;
@@ -345,6 +346,78 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
         background-color: #f3f4f6;
         color: #111827;
         font-weight: bold;
+    }
+
+    /* ===== Modal Imagen (MISMO ESTILO QUE items.php) ===== */
+    #imageModal .modal-content { background: #0b1220; border: 0; }
+    #imageModal .modal-header { border: 0; }
+    #imageModal .modal-body { padding: 0; }
+    #imageModal .img-stage{
+        position: relative;
+        width: 100%;
+        height: min(80vh, 760px);
+        overflow: hidden;
+        background: #0b1220;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    #imageModal #modalImage{
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        user-select: none;
+        -webkit-user-drag: none;
+        cursor: default;
+    }
+
+    /* Animación suave para el modal */
+    #imageModal .modal-content {
+        animation: slideIn 0.3s ease-out;
+        border-radius: 20px;
+        overflow: hidden;
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Backdrop oscuro */
+    #imageModal.modal.show {
+        background-color: rgba(0, 0, 0, 0.75);
+    }
+
+    /* Efecto hover en el botón de cerrar */
+    #imageModal .btn-close-white {
+        transition: transform 0.2s, opacity 0.2s;
+        opacity: 0.9;
+    }
+
+    #imageModal .btn-close-white:hover {
+        transform: rotate(90deg);
+        opacity: 1;
+    }
+
+    /* Imagen redondeada con sombra */
+    #imageModal #modalImage {
+        transition: transform 0.3s ease;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    #imageModal #modalImage:hover {
+        transform: scale(1.02);
+    }
+
+    /* Efecto glow en el icono */
+    #imageModal .modal-title .fa-image {
+        filter: drop-shadow(0 0 6px rgba(76, 175, 80, 0.6));
     }
     </style>
 </head>
@@ -425,6 +498,13 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
 
                                 $dateStr = (new DateTime($row['reserved_at']))->format('d M, Y');
                                 $timeStr = (new DateTime($row['reserved_at']))->format('h:i A');
+
+                                // Imagen segura para abrir modal
+                                $imgFile = trim((string)$item_image);
+                                $imgSrc = '';
+                                if(!empty($imgFile)){
+                                    $imgSrc = 'uploads/' . rawurlencode(basename($imgFile));
+                                }
                         ?>
                         <tr
                             id="res-row-<?= $rid ?>"
@@ -432,15 +512,25 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
                             data-ismydept="<?= $isMyDept ? '1' : '0' ?>"
                         >
                             <td class="fw-medium"><?= $dept_name ?></td>
+
                             <td>
-                                <?php if(!empty($item_image)): ?>
-                                <img src="uploads/<?= htmlspecialchars($item_image) ?>" class="img-thumb" alt="img">
+                                <?php if(!empty($imgSrc)): ?>
+                                    <img
+                                        src="<?= htmlspecialchars($imgSrc) ?>"
+                                        class="img-thumb js-open-img"
+                                        alt="img"
+                                        role="button"
+                                        tabindex="0"
+                                        data-fullsrc="<?= htmlspecialchars($imgSrc) ?>"
+                                        data-title="<?= htmlspecialchars($item_code ?: 'Vista previa') ?>"
+                                    >
                                 <?php else: ?>
-                                <div class="img-thumb d-flex align-items-center justify-content-center bg-light text-muted">
-                                    <i class="fas fa-image"></i>
-                                </div>
+                                    <div class="img-thumb d-flex align-items-center justify-content-center bg-light text-muted">
+                                        <i class="fas fa-image"></i>
+                                    </div>
                                 <?php endif; ?>
                             </td>
+
                             <td>
                                 <div class="d-flex flex-column align-items-start">
                                     <span class="code-badge"><?= $item_code ?></span>
@@ -452,7 +542,9 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
                                     <?php endif; ?>
                                 </div>
                             </td>
+
                             <td class="fw-bold">x<?= $quantity ?></td>
+
                             <td>
                                 <div class="d-flex align-items-center">
                                     <div class="user-avatar-circle"><?= $initial ?></div>
@@ -602,6 +694,29 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
         </div>
     </div>
 
+    <!-- Modal para ver imagen (MISMO QUE items.php) -->
+    <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg" style="background: #e6ffe6;">
+                <div class="modal-header border-0 px-4 py-3" style="background: #2d5a3d;">
+                    <h5 class="modal-title text-white mb-0">
+                        <i class="fas fa-image me-2" style="color: #4caf50;"></i>
+                        <span id="imageModalTitle">Vista previa</span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body p-4">
+                    <img id="modalImage"
+                         src=""
+                         alt="Vista previa"
+                         class="img-fluid w-100 h-100 rounded-4"
+                         style="object-fit: contain; max-height: 70vh;">
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     let currentSelectElement = null;
@@ -642,11 +757,9 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
     }
 
     function applyReservationUI(rid, status){
-        // status pill
         const statusCell = document.getElementById('res-statuscell-' + rid);
         if(statusCell) statusCell.innerHTML = renderStatusPill(status);
 
-        // gestión
         const row = document.getElementById('res-row-' + rid);
         const manageCell = document.getElementById('res-manage-' + rid);
         const isAdmin = row?.getAttribute('data-isadmin') === '1';
@@ -712,6 +825,44 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
         userReturnModal.show();
     }
 
+    // ===== Modal Imagen (abrir/cerrar) =====
+    (function(){
+        const imageModalEl = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
+        const titleEl = document.getElementById('imageModalTitle');
+
+        document.addEventListener('click', function(e){
+            const el = e.target.closest('.js-open-img');
+            if(!el) return;
+
+            const src = el.getAttribute('data-fullsrc') || el.getAttribute('src');
+            if(!src) return;
+
+            modalImage.src = src;
+            titleEl.textContent = el.getAttribute('data-title') || 'Vista previa';
+
+            bootstrap.Modal.getOrCreateInstance(imageModalEl).show();
+        });
+
+        // Enter cuando tiene focus en miniatura
+        document.addEventListener('keydown', function(e){
+            if(e.key !== 'Enter') return;
+            const el = document.activeElement;
+            if(el && el.classList && el.classList.contains('js-open-img')){
+                const src = el.getAttribute('data-fullsrc') || el.getAttribute('src');
+                if(!src) return;
+
+                modalImage.src = src;
+                titleEl.textContent = el.getAttribute('data-title') || 'Vista previa';
+                bootstrap.Modal.getOrCreateInstance(imageModalEl).show();
+            }
+        });
+
+        imageModalEl?.addEventListener('hidden.bs.modal', () => {
+            modalImage.src = '';
+        });
+    })();
+
     // ===== AJAX ADMIN (statusForm) =====
     document.getElementById('statusForm')?.addEventListener('submit', async function(e){
         e.preventDefault();
@@ -744,15 +895,12 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
             const rid = json.data?.reservation_id;
             const status = (json.data?.status || '').toLowerCase();
 
-            // cerrar modal
             statusModal.hide();
 
-            // aplicar UI
             if(rid && status){
                 applyReservationUI(rid, status);
             }
 
-            // limpiar referencia
             currentSelectElement = null;
 
         }catch(err){
