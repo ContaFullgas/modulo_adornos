@@ -12,7 +12,6 @@ $DEBUG_IMAGES = (isset($_GET['debug']) && $_GET['debug'] == '1');
 
 /**
  * Log helper (se va al error_log del servidor).
- * Si quieres, puedes redirigir a un archivo con ini_set('error_log', 'ruta.log');
  */
 function log_img($msg){
     error_log("[REPORT_PDF] " . $msg);
@@ -39,7 +38,7 @@ if($isAdmin){
     if($userDept > 0){
         $deptFilterSQL = "WHERE r.dept_id = " . $userDept;
     } else {
-        $deptFilterSQL = ""; // opcional: mostrar todo si no tiene dept
+        $deptFilterSQL = "";
     }
 }
 
@@ -125,8 +124,7 @@ function fpdfSafeImagePath($imgPath, &$tmpImagesToDelete){
     // Si es PNG, normalizar a JPG (evita problemas de alpha/bit-depth)
     if($info['mime'] === 'image/png'){
         if(!function_exists('imagecreatefrompng') || !function_exists('imagejpeg')){
-            // No hay GD: no podemos convertir, devolvemos original (podría fallar en FPDF)
-            return $imgPath;
+            return $imgPath; // podría fallar en FPDF, pero no podemos convertir
         }
 
         $im = @imagecreatefrompng($imgPath);
@@ -166,6 +164,8 @@ $pdf->Ln(2);
 
 if($type === 'reservations'){
     $whereClause = $deptFilterSQL ? $deptFilterSQL : '';
+
+    // ✅ SOLO CAMBIO: ordenar por departamento y luego por fecha
     $qStr = "
         SELECT r.*, i.code AS item_code, i.description AS item_description, i.image AS item_image,
                d.name AS dept_name, u.username as user_name
@@ -174,13 +174,13 @@ if($type === 'reservations'){
         LEFT JOIN departments d ON r.dept_id=d.id
         LEFT JOIN users u ON r.user_id=u.id
         $whereClause
-        ORDER BY r.reserved_at DESC
+        ORDER BY d.name ASC, r.reserved_at DESC, r.id DESC
     ";
+
     $q = $conn->query($qStr);
     if(!$q){
         $pdf->SetFont('Arial','',12);
         $pdf->Cell(0,6, toPdf('Error en la consulta: ' . $conn->error), 0,1);
-        // limpiar temporales
         foreach($tmpImagesToDelete as $t){ @unlink($t); }
         $pdf->Output('I','reporte_reservas.pdf');
         exit;
@@ -211,7 +211,7 @@ if($type === 'reservations'){
 
         // --- imagen ---
         $imageFile = trim((string)($row['item_image'] ?? ''));
-        $imageFile = basename($imageFile); // evita rutas guardadas en BD (uploads/... o /uploads/...)
+        $imageFile = basename($imageFile);
 
         $imgPath = __DIR__ . '/uploads/' . $imageFile;
 
@@ -264,6 +264,8 @@ if($type === 'reservations'){
 }
 elseif($type === 'returns'){
     $whereClause = $deptFilterSQL ? $deptFilterSQL : '';
+
+    // ✅ SOLO CAMBIO: ordenar por departamento y luego por fecha
     $qStr = "
         SELECT r.*, i.code AS item_code, i.description AS item_description, i.image AS item_image,
                d.name AS dept_name, u.username AS handled_by_name
@@ -272,8 +274,9 @@ elseif($type === 'returns'){
         LEFT JOIN departments d ON r.dept_id=d.id
         LEFT JOIN users u ON r.handled_by=u.id
         $whereClause
-        ORDER BY r.returned_at DESC
+        ORDER BY d.name ASC, r.returned_at DESC, r.id DESC
     ";
+
     $q = $conn->query($qStr);
     if(!$q){
         $pdf->SetFont('Arial','',12);
