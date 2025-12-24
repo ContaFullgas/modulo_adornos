@@ -59,19 +59,25 @@ $total_pages = (int)ceil($total_items / $items_per_page);
 
 // CONSULTA PRINCIPAL
 $sql = "
-    SELECT r.*, d.name AS dept_name,
-           i.code AS item_code, i.description AS item_description, i.image AS item_image,
-           u.username as user_name
+    SELECT r.*, 
+           d.name AS dept_name,
+           i.code AS item_code, 
+           i.description AS item_description, 
+           i.image AS item_image,
+           u.username AS user_name,
+           ret.return_condition,
+           ret.condition_notes
     FROM reservations r
     JOIN departments d ON d.id = r.dept_id
     JOIN items i ON i.id = r.item_id
     LEFT JOIN users u ON u.id = r.user_id
+    LEFT JOIN returns ret ON ret.reservation_id = r.id
     $whereClause
     ORDER BY r.reserved_at DESC
     LIMIT $offset, $items_per_page
 ";
-$result = $conn->query($sql);
 
+$result = $conn->query($sql);
 $isAdminGlobal = (current_user()['role'] === 'admin');
 ?>
 <!DOCTYPE html>
@@ -334,6 +340,30 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
         color: white;
     }
 
+    /* Estilos adicionales para los campos de condición */
+    #conditionFields .form-select,
+    #conditionFields .form-control {
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        transition: all 0.2s;
+    }
+
+    #conditionFields .form-select:focus,
+    #conditionFields .form-control:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    #conditionFields .form-label {
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+
+    #conditionNotesContainer textarea {
+        resize: vertical;
+        min-height: 80px;
+    }
+
     /* Paginación */
     .pagination .page-link {
         color: #374151;
@@ -349,10 +379,20 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
     }
 
     /* ===== Modal Imagen (MISMO ESTILO QUE items.php) ===== */
-    #imageModal .modal-content { background: #0b1220; border: 0; }
-    #imageModal .modal-header { border: 0; }
-    #imageModal .modal-body { padding: 0; }
-    #imageModal .img-stage{
+    #imageModal .modal-content {
+        background: #0b1220;
+        border: 0;
+    }
+
+    #imageModal .modal-header {
+        border: 0;
+    }
+
+    #imageModal .modal-body {
+        padding: 0;
+    }
+
+    #imageModal .img-stage {
         position: relative;
         width: 100%;
         height: min(80vh, 760px);
@@ -362,7 +402,8 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
         align-items: center;
         justify-content: center;
     }
-    #imageModal #modalImage{
+
+    #imageModal #modalImage {
         width: 100%;
         height: 100%;
         object-fit: contain;
@@ -383,6 +424,7 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
             opacity: 0;
             transform: translateY(-20px);
         }
+
         to {
             opacity: 1;
             transform: translateY(0);
@@ -440,9 +482,12 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
                         class="form-select form-select-sm border-secondary-subtle fw-medium text-secondary"
                         style="width: 160px;" onchange="this.form.submit()">
                         <option value="all" <?= $statusFilter === 'all' ? 'selected' : '' ?>>Todos</option>
-                        <option value="reservado" <?= $statusFilter === 'reservado' ? 'selected' : '' ?>>🔴 No Recibido</option>
-                        <option value="en_proceso" <?= $statusFilter === 'en_proceso' ? 'selected' : '' ?>>🟡 Pendiente</option>
-                        <option value="finalizado" <?= $statusFilter === 'finalizado' ? 'selected' : '' ?>>🟢 Recibido</option>
+                        <option value="reservado" <?= $statusFilter === 'reservado' ? 'selected' : '' ?>>🔴 No Recibido
+                        </option>
+                        <option value="en_proceso" <?= $statusFilter === 'en_proceso' ? 'selected' : '' ?>>🟡 Pendiente
+                        </option>
+                        <option value="finalizado" <?= $statusFilter === 'finalizado' ? 'selected' : '' ?>>🟢 Recibido
+                        </option>
                     </select>
                 </div>
                 <button type="submit" class="btn btn-dark btn-sm rounded-pill px-3">Aplicar</button>
@@ -464,6 +509,11 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
                             <th>Cant.</th>
                             <th>Solicitado Por</th>
                             <th>Estado Actual</th>
+
+                            <?php if($isAdminGlobal): ?>
+                            <th style="width: 250px;">Observaciones</th>
+                            <?php endif; ?>
+
                             <th><i class="far fa-calendar me-2"></i>Fecha</th>
                             <th class="text-end">Gestión</th>
                         </tr>
@@ -481,7 +531,7 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
                                 $user_name = htmlspecialchars($row['user_name'] ?? 'Usuario');
                                 $initial = strtoupper(substr($user_name, 0, 1));
 
-                                // Normalizar status a: reservado | en_proceso | finalizado
+                                // Normalizar status
                                 $status_raw = strtolower(trim((string)($row['status'] ?? 'reservado')));
                                 $status_norm = 'reservado';
                                 if ($status_raw === 'reservado') $status_norm = 'reservado';
@@ -505,29 +555,44 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
                                 if(!empty($imgFile)){
                                     $imgSrc = 'uploads/' . rawurlencode(basename($imgFile));
                                 }
+                                // --- CONDICIÓN DE DEVOLUCIÓN ---
+$condicion = $row['return_condition'] ?? '';
+$nota_db   = trim($row['condition_notes'] ?? '');
+$nota_final = '';
+
+if ($nota_db !== '') {
+    $nota_final = $nota_db;
+} else {
+    if ($condicion === 'buen_estado') {
+        $nota_final = 'Artículo devuelto en buen estado.';
+    } elseif ($condicion === 'roto') {
+        $nota_final = 'Artículo devuelto dañado.';
+    } elseif ($condicion === 'incompleto') {
+        $nota_final = 'Artículo devuelto incompleto.';
+    } elseif ($status_norm === 'finalizado') {
+        // Finalizado pero sin registro de retorno (caso raro)
+        $nota_final = 'Devolución finalizada sin observaciones.';
+    } else {
+        // Aún no devuelto
+        $nota_final = '—';
+    }
+}
+
                         ?>
-                        <tr
-                            id="res-row-<?= $rid ?>"
-                            data-isadmin="<?= $isAdmin ? '1' : '0' ?>"
-                            data-ismydept="<?= $isMyDept ? '1' : '0' ?>"
-                        >
+                        <tr id="res-row-<?= $rid ?>" data-isadmin="<?= $isAdmin ? '1' : '0' ?>"
+                            data-ismydept="<?= $isMyDept ? '1' : '0' ?>">
                             <td class="fw-medium"><?= $dept_name ?></td>
 
                             <td>
                                 <?php if(!empty($imgSrc)): ?>
-                                    <img
-                                        src="<?= htmlspecialchars($imgSrc) ?>"
-                                        class="img-thumb js-open-img"
-                                        alt="img"
-                                        role="button"
-                                        tabindex="0"
-                                        data-fullsrc="<?= htmlspecialchars($imgSrc) ?>"
-                                        data-title="<?= htmlspecialchars($item_code ?: 'Vista previa') ?>"
-                                    >
+                                <img src="<?= htmlspecialchars($imgSrc) ?>" class="img-thumb js-open-img" alt="img"
+                                    role="button" tabindex="0" data-fullsrc="<?= htmlspecialchars($imgSrc) ?>"
+                                    data-title="<?= htmlspecialchars($item_code ?: 'Vista previa') ?>">
                                 <?php else: ?>
-                                    <div class="img-thumb d-flex align-items-center justify-content-center bg-light text-muted">
-                                        <i class="fas fa-image"></i>
-                                    </div>
+                                <div
+                                    class="img-thumb d-flex align-items-center justify-content-center bg-light text-muted">
+                                    <i class="fas fa-image"></i>
+                                </div>
                                 <?php endif; ?>
                             </td>
 
@@ -552,16 +617,66 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
                                 </div>
                             </td>
 
-                            <!-- ESTADO (se actualiza por AJAX) -->
                             <td id="res-statuscell-<?= $rid ?>">
                                 <?php if($status_norm === 'reservado'): ?>
-                                    <span class="status-pill st-apartado">Apartado</span>
+                                <span class="status-pill st-apartado">Apartado</span>
                                 <?php elseif($status_norm === 'en_proceso'): ?>
-                                    <span class="status-pill st-proceso">En Proceso</span>
+                                <span class="status-pill st-proceso">En Proceso</span>
                                 <?php else: ?>
-                                    <span class="status-pill st-gris">Devuelto</span>
+                                <span class="status-pill st-gris">Devuelto</span>
                                 <?php endif; ?>
                             </td>
+
+                            <?php if($isAdmin): ?>
+                            <td>
+                                <?php 
+                                        // Usamos los valores tal cual vienen del ENUM en BD (minusculas)
+                                      $condicion = $row['return_condition'] ?? '';
+                                    $notas_bd  = trim($row['condition_notes'] ?? '');
+                                     $notas = $notas_bd;
+
+                                // Si NO hay notas escritas, generar texto automático según condición
+                                if (empty($notas)) {
+                                    if ($condicion === 'buen_estado') {
+                                        $notas = 'El artículo fue entregado en buen estado.';
+                                    } elseif ($condicion === 'roto') {
+                                        $notas = 'El artículo fue entregado dañado.';
+                                    } elseif ($condicion === 'incompleto') {
+                                        $notas = 'El artículo fue entregado incompleto.';
+                                    }
+                                }
+
+                                    ?>
+                                <?php if(!empty($condicion) || !empty($notas)): ?>
+                                <div class="d-flex flex-column gap-1">
+
+                                    <?php if($condicion === 'buen_estado'): ?>
+                                    <span class="badge text-bg-success bg-opacity-75" style="width: fit-content;">
+                                        <i class="fas fa-check-circle me-1"></i> Buen Estado
+                                    </span>
+                                    <?php elseif($condicion === 'roto'): ?>
+                                    <span class="badge text-bg-danger" style="width: fit-content;">
+                                        <i class="fas fa-heart-crack me-1"></i> Roto / Dañado
+                                    </span>
+                                    <?php elseif($condicion === 'incompleto'): ?>
+                                    <span class="badge text-bg-warning text-dark" style="width: fit-content;">
+                                        <i class="fas fa-puzzle-piece me-1"></i> Incompleto
+                                    </span>
+                                    <?php endif; ?>
+
+                                    <?php if(!empty($notas)): ?>
+                                    <small class="text-muted fst-italic border-start border-3 ps-2 mt-1"
+                                        style="font-size: 0.85rem; display:block; word-wrap: break-word;">
+                                        <?= nl2br(htmlspecialchars($notas)) ?>
+                                    </small>
+
+                                    <?php endif; ?>
+                                </div>
+                                <?php else: ?>
+                                <span class="text-muted small opacity-50">-</span>
+                                <?php endif; ?>
+                            </td>
+                            <?php endif; ?>
 
                             <td>
                                 <div class="d-flex flex-column">
@@ -570,41 +685,41 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
                                 </div>
                             </td>
 
-                            <!-- GESTIÓN (se actualiza por AJAX) -->
                             <td class="text-end" id="res-manage-<?= $rid ?>">
                                 <?php if ($isAdmin): ?>
-                                    <select
-                                        id="res-select-<?= $rid ?>"
-                                        class="form-select form-select-sm admin-select <?= $selectClass ?>"
-                                        data-id="<?= $rid ?>"
-                                        data-original="<?= $status_norm ?>"
-                                        onchange="openStatusModal(this)"
-                                    >
-                                        <option value="reservado" <?= $status_norm === 'reservado' ? 'selected' : '' ?>>🔴 No Recibido</option>
-                                        <option value="en_proceso" <?= $status_norm === 'en_proceso' ? 'selected' : '' ?>>🟡 Pendiente</option>
-                                        <option value="finalizado" <?= $status_norm === 'finalizado' ? 'selected' : '' ?>>🟢 Recibido</option>
-                                    </select>
+                                <select id="res-select-<?= $rid ?>"
+                                    class="form-select form-select-sm admin-select <?= $selectClass ?>"
+                                    data-id="<?= $rid ?>" data-original="<?= $status_norm ?>"
+                                    onchange="openStatusModal(this)">
+                                    <option value="reservado" <?= $status_norm === 'reservado' ? 'selected' : '' ?>>🔴
+                                        No Recibido</option>
+                                    <option value="en_proceso" <?= $status_norm === 'en_proceso' ? 'selected' : '' ?>>🟡
+                                        Pendiente</option>
+                                    <option value="finalizado" <?= $status_norm === 'finalizado' ? 'selected' : '' ?>>🟢
+                                        Recibido</option>
+                                </select>
                                 <?php else: ?>
-                                    <?php if ($status_norm === 'reservado' && $isMyDept): ?>
-                                        <button class="btn-outline-custom" onclick="openUserReturnModal(<?= $rid ?>)">
-                                            <i class="fas fa-undo-alt"></i> Devolver
-                                        </button>
-                                    <?php elseif ($status_norm === 'en_proceso'): ?>
-                                        <span class="text-warning small fst-italic">
-                                            <i class="fas fa-clock me-1"></i> Esperando Admin
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="text-muted small">
-                                            <i class="fas fa-check-double me-1"></i> Completado
-                                        </span>
-                                    <?php endif; ?>
+                                <?php if ($status_norm === 'reservado' && $isMyDept): ?>
+                                <button class="btn-outline-custom" onclick="openUserReturnModal(<?= $rid ?>)">
+                                    <i class="fas fa-undo-alt"></i> Devolver
+                                </button>
+                                <?php elseif ($status_norm === 'en_proceso'): ?>
+                                <span class="text-warning small fst-italic">
+                                    <i class="fas fa-clock me-1"></i> Esperando Admin
+                                </span>
+                                <?php else: ?>
+                                <span class="text-muted small">
+                                    <i class="fas fa-check-double me-1"></i> Completado
+                                </span>
+                                <?php endif; ?>
                                 <?php endif; ?>
                             </td>
                         </tr>
                         <?php endwhile; ?>
                         <?php else: ?>
                         <tr>
-                            <td colspan="8" class="text-center py-5 text-muted">No se encontraron registros.</td>
+                            <td colspan="<?= $isAdminGlobal ? '9' : '8' ?>" class="text-center py-5 text-muted">No se
+                                encontraron registros.</td>
                         </tr>
                         <?php endif; ?>
                     </tbody>
@@ -635,10 +750,8 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
 
     </div>
 
-    <!-- MODAL ADMIN -->
     <div class="modal fade" id="statusModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-        <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
-            <!-- fallback: process_return.php, pero AJAX intercepta -->
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 480px;">
             <form method="POST" action="process_return.php" class="modal-content" id="statusForm">
                 <div class="modal-header">
                     <h5 class="modal-title fw-bold">Actualizar Estado</h5>
@@ -653,6 +766,29 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
                     <input type="hidden" name="reservation_id" id="modal_res_id">
                     <input type="hidden" name="new_status" id="modal_new_status">
 
+                    <div id="conditionFields" style="display: none;">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold text-dark">
+                                <i class="fas fa-clipboard-check me-2"></i>Estado de los artículos:
+                            </label>
+                            <select name="return_condition" id="return_condition" class="form-select" required>
+                                <option value="">Seleccionar...</option>
+                                <option value="buen_estado">✅ Buen Estado</option>
+                                <option value="roto">🔴 Roto o Dañado</option>
+                                <option value="incompleto">⚠️ Incompleto (falta algo)</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3" id="conditionNotesContainer" style="display: none;">
+                            <label for="condition_notes" class="form-label fw-semibold text-dark">
+                                <i class="fas fa-comment-dots me-2"></i>Comentarios:
+                            </label>
+                            <textarea name="condition_notes" id="condition_notes" class="form-control" rows="3"
+                                placeholder="Describe qué está roto o qué falta..."></textarea>
+                            <small class="text-muted">Especifica el daño o los artículos faltantes</small>
+                        </div>
+                    </div>
+
                     <button type="submit" id="btnConfirmStatus" class="btn-confirm-modal">Confirmar Cambio</button>
                     <button type="button" class="btn btn-link text-muted mt-2 text-decoration-none"
                         data-bs-dismiss="modal" onclick="cancelStatusChange()">Cancelar</button>
@@ -661,10 +797,8 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
         </div>
     </div>
 
-    <!-- MODAL USUARIO -->
     <div class="modal fade" id="userReturnModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
-            <!-- fallback: process_return.php, pero AJAX intercepta -->
             <form method="POST" action="process_return.php" class="modal-content" id="userReturnForm">
                 <div class="modal-header border-0 pb-0">
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -675,7 +809,8 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
                     </div>
                     <h4 class="fw-bold mb-2">¿Devolver Artículo?</h4>
                     <p class="text-muted mb-4 small">
-                        Se notificará al administrador que estás devolviendo este ítem. El estado cambiará a <strong>"En Proceso"</strong>
+                        Se notificará al administrador que estás devolviendo este ítem. El estado cambiará a <strong>"En
+                            Proceso"</strong>
                         hasta que sea recibido.
                     </p>
 
@@ -694,7 +829,6 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
         </div>
     </div>
 
-    <!-- Modal para ver imagen (MISMO QUE items.php) -->
     <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content border-0 shadow-lg" style="background: #e6ffe6;">
@@ -703,15 +837,13 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
                         <i class="fas fa-image me-2" style="color: #4caf50;"></i>
                         <span id="imageModalTitle">Vista previa</span>
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Cerrar"></button>
                 </div>
 
                 <div class="modal-body p-4">
-                    <img id="modalImage"
-                         src=""
-                         alt="Vista previa"
-                         class="img-fluid w-100 h-100 rounded-4"
-                         style="object-fit: contain; max-height: 70vh;">
+                    <img id="modalImage" src="" alt="Vista previa" class="img-fluid w-100 h-100 rounded-4"
+                        style="object-fit: contain; max-height: 70vh;">
                 </div>
             </div>
         </div>
@@ -723,30 +855,30 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
     const statusModal = new bootstrap.Modal(document.getElementById('statusModal'));
     const userReturnModal = new bootstrap.Modal(document.getElementById('userReturnModal'));
 
-    function selectClassByStatus(status){
-        if(status === 'reservado') return 'sel-red';
-        if(status === 'en_proceso') return 'sel-yellow';
-        if(status === 'finalizado') return 'sel-green';
+    function selectClassByStatus(status) {
+        if (status === 'reservado') return 'sel-red';
+        if (status === 'en_proceso') return 'sel-yellow';
+        if (status === 'finalizado') return 'sel-green';
         return 'text-dark bg-light';
     }
 
-    function renderStatusPill(status){
-        if(status === 'reservado'){
+    function renderStatusPill(status) {
+        if (status === 'reservado') {
             return '<span class="status-pill st-apartado">Apartado</span>';
         }
-        if(status === 'en_proceso'){
+        if (status === 'en_proceso') {
             return '<span class="status-pill st-proceso">En Proceso</span>';
         }
         return '<span class="status-pill st-gris">Devuelto</span>';
     }
 
-    function renderUserManage(status, rid, isMyDept){
-        if(status === 'reservado' && isMyDept){
+    function renderUserManage(status, rid, isMyDept) {
+        if (status === 'reservado' && isMyDept) {
             return `<button class="btn-outline-custom" onclick="openUserReturnModal(${rid})">
                         <i class="fas fa-undo-alt"></i> Devolver
                     </button>`;
         }
-        if(status === 'en_proceso'){
+        if (status === 'en_proceso') {
             return `<span class="text-warning small fst-italic">
                         <i class="fas fa-clock me-1"></i> Esperando Admin
                     </span>`;
@@ -756,26 +888,26 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
                 </span>`;
     }
 
-    function applyReservationUI(rid, status){
+    function applyReservationUI(rid, status) {
         const statusCell = document.getElementById('res-statuscell-' + rid);
-        if(statusCell) statusCell.innerHTML = renderStatusPill(status);
+        if (statusCell) statusCell.innerHTML = renderStatusPill(status);
 
         const row = document.getElementById('res-row-' + rid);
         const manageCell = document.getElementById('res-manage-' + rid);
         const isAdmin = row?.getAttribute('data-isadmin') === '1';
         const isMyDept = row?.getAttribute('data-ismydept') === '1';
 
-        if(isAdmin){
+        if (isAdmin) {
             const sel = document.getElementById('res-select-' + rid);
-            if(sel){
+            if (sel) {
                 sel.value = status;
                 sel.setAttribute('data-original', status);
 
-                sel.classList.remove('sel-red','sel-yellow','sel-green','text-dark','bg-light');
+                sel.classList.remove('sel-red', 'sel-yellow', 'sel-green', 'text-dark', 'bg-light');
                 sel.classList.add(selectClassByStatus(status));
             }
-        }else{
-            if(manageCell){
+        } else {
+            if (manageCell) {
                 manageCell.innerHTML = renderUserManage(status, rid, isMyDept);
             }
         }
@@ -790,28 +922,56 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
         const iconContainer = document.getElementById('statusIconContainer');
         const textDisplay = document.getElementById('statusTextDisplay');
         const btnConfirm = document.getElementById('btnConfirmStatus');
+        const conditionFields = document.getElementById('conditionFields');
+        const returnCondition = document.getElementById('return_condition');
+        const conditionNotes = document.getElementById('condition_notes');
 
         document.getElementById('modal_res_id').value = resId;
         document.getElementById('modal_new_status').value = newStatus;
+
+        // Resetear campos de condición
+        returnCondition.value = '';
+        conditionNotes.value = '';
+        document.getElementById('conditionNotesContainer').style.display = 'none';
 
         if (newStatus === 'reservado') {
             iconContainer.innerHTML = '<i class="fas fa-times-circle status-icon-large text-danger"></i>';
             textDisplay.textContent = 'No Recibido';
             btnConfirm.style.backgroundColor = '#dc2626';
             btnConfirm.textContent = 'Marcar como No Recibido';
+            conditionFields.style.display = 'none';
+            returnCondition.removeAttribute('required');
         } else if (newStatus === 'en_proceso') {
             iconContainer.innerHTML = '<i class="fas fa-clock status-icon-large text-warning"></i>';
             textDisplay.textContent = 'Pendiente';
             btnConfirm.style.backgroundColor = '#d97706';
             btnConfirm.textContent = 'Marcar como Pendiente';
+            conditionFields.style.display = 'none';
+            returnCondition.removeAttribute('required');
         } else if (newStatus === 'finalizado') {
             iconContainer.innerHTML = '<i class="fas fa-check-circle status-icon-large text-success"></i>';
             textDisplay.textContent = 'Recibido (Finalizado)';
             btnConfirm.style.backgroundColor = '#059669';
             btnConfirm.textContent = 'Confirmar Recepción';
+            conditionFields.style.display = 'block';
+            returnCondition.setAttribute('required', 'required');
         }
+
         statusModal.show();
     }
+    document.getElementById('return_condition')?.addEventListener('change', function() {
+        const notesContainer = document.getElementById('conditionNotesContainer');
+        const notesField = document.getElementById('condition_notes');
+
+        if (this.value === 'roto' || this.value === 'incompleto') {
+            notesContainer.style.display = 'block';
+            notesField.setAttribute('required', 'required');
+        } else {
+            notesContainer.style.display = 'none';
+            notesField.removeAttribute('required');
+            notesField.value = '';
+        }
+    });
 
     function cancelStatusChange() {
         if (currentSelectElement) {
@@ -826,17 +986,17 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
     }
 
     // ===== Modal Imagen (abrir/cerrar) =====
-    (function(){
+    (function() {
         const imageModalEl = document.getElementById('imageModal');
         const modalImage = document.getElementById('modalImage');
         const titleEl = document.getElementById('imageModalTitle');
 
-        document.addEventListener('click', function(e){
+        document.addEventListener('click', function(e) {
             const el = e.target.closest('.js-open-img');
-            if(!el) return;
+            if (!el) return;
 
             const src = el.getAttribute('data-fullsrc') || el.getAttribute('src');
-            if(!src) return;
+            if (!src) return;
 
             modalImage.src = src;
             titleEl.textContent = el.getAttribute('data-title') || 'Vista previa';
@@ -845,12 +1005,12 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
         });
 
         // Enter cuando tiene focus en miniatura
-        document.addEventListener('keydown', function(e){
-            if(e.key !== 'Enter') return;
+        document.addEventListener('keydown', function(e) {
+            if (e.key !== 'Enter') return;
             const el = document.activeElement;
-            if(el && el.classList && el.classList.contains('js-open-img')){
+            if (el && el.classList && el.classList.contains('js-open-img')) {
                 const src = el.getAttribute('data-fullsrc') || el.getAttribute('src');
-                if(!src) return;
+                if (!src) return;
 
                 modalImage.src = src;
                 titleEl.textContent = el.getAttribute('data-title') || 'Vista previa';
@@ -864,77 +1024,90 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
     })();
 
     // ===== AJAX ADMIN (statusForm) =====
-    document.getElementById('statusForm')?.addEventListener('submit', async function(e){
+    document.getElementById('statusForm')?.addEventListener('submit', async function(e) {
         e.preventDefault();
 
         const form = this;
         const btn = document.getElementById('btnConfirmStatus');
         const old = btn ? btn.innerHTML : '';
 
-        if(btn){ btn.disabled = true; btn.innerHTML = 'Procesando...'; }
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = 'Procesando...';
+        }
 
-        try{
+        try {
             const fd = new FormData(form);
 
             const resp = await fetch('ajax/process_return_ajax.php', {
                 method: 'POST',
                 body: fd,
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
             });
 
             let json;
-            try { json = await resp.json(); } catch { json = null; }
+            try {
+                json = await resp.json();
+            } catch {
+                json = null;
+            }
 
-            if(!resp.ok || !json || !json.ok){
+            if (!resp.ok || !json || !json.ok) {
                 const msg = (json && json.message) ? json.message : 'No se pudo actualizar.';
                 alert(msg);
                 cancelStatusChange();
                 return;
             }
 
-            const rid = json.data?.reservation_id;
-            const status = (json.data?.status || '').toLowerCase();
+            // ÉXITO: Recargamos para que se vea la nota nueva en la tabla
+            location.reload();
 
-            statusModal.hide();
-
-            if(rid && status){
-                applyReservationUI(rid, status);
-            }
-
-            currentSelectElement = null;
-
-        }catch(err){
+        } catch (err) {
             console.error(err);
             alert('Error de red o del servidor.');
             cancelStatusChange();
-        }finally{
-            if(btn){ btn.disabled = false; btn.innerHTML = old; }
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = old;
+            }
         }
     });
 
     // ===== AJAX USUARIO (userReturnForm) =====
-    document.getElementById('userReturnForm')?.addEventListener('submit', async function(e){
+    document.getElementById('userReturnForm')?.addEventListener('submit', async function(e) {
         e.preventDefault();
 
         const form = this;
         const submitBtn = form.querySelector('button[type="submit"]');
         const old = submitBtn ? submitBtn.innerHTML : '';
 
-        if(submitBtn){ submitBtn.disabled = true; submitBtn.innerHTML = 'Enviando...'; }
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = 'Enviando...';
+        }
 
-        try{
+        try {
             const fd = new FormData(form);
 
             const resp = await fetch('ajax/process_return_ajax.php', {
                 method: 'POST',
                 body: fd,
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
             });
 
             let json;
-            try { json = await resp.json(); } catch { json = null; }
+            try {
+                json = await resp.json();
+            } catch {
+                json = null;
+            }
 
-            if(!resp.ok || !json || !json.ok){
+            if (!resp.ok || !json || !json.ok) {
                 const msg = (json && json.message) ? json.message : 'No se pudo solicitar devolución.';
                 alert(msg);
                 return;
@@ -945,15 +1118,18 @@ $isAdminGlobal = (current_user()['role'] === 'admin');
 
             userReturnModal.hide();
 
-            if(rid && status){
+            if (rid && status) {
                 applyReservationUI(rid, status);
             }
 
-        }catch(err){
+        } catch (err) {
             console.error(err);
             alert('Error de red o del servidor.');
-        }finally{
-            if(submitBtn){ submitBtn.disabled = false; submitBtn.innerHTML = old; }
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = old;
+            }
         }
     });
     </script>

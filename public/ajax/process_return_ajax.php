@@ -89,7 +89,7 @@ try {
 
     // =========================
     // CASO 2: admin confirma recepción (en_proceso / reservado -> finalizado)
-    // => devuelve stock + inserta returns + set returned_at
+    // => devuelve stock + inserta returns + set returned_at + EVALÚA CONDICIÓN
     // =========================
     if ($new_status === 'finalizado') {
 
@@ -103,6 +103,28 @@ try {
         if ($res_status === 'finalizado' || $res_status === 'devuelto') {
             $conn->rollback();
             json_out(false, 'Esta reserva ya fue finalizada anteriormente.');
+        }
+
+        // **NUEVOS CAMPOS DE CONDICIÓN**
+        $return_condition = isset($_POST['return_condition']) ? trim($_POST['return_condition']) : '';
+        $condition_notes = isset($_POST['condition_notes']) ? trim($_POST['condition_notes']) : null;
+
+        // Validar que se haya seleccionado una condición
+        $valid_conditions = ['buen_estado', 'roto', 'incompleto'];
+        if (!in_array($return_condition, $valid_conditions)) {
+            $conn->rollback();
+            json_out(false, 'Debe seleccionar el estado de los artículos devueltos.');
+        }
+
+        // Si está roto o incompleto, las notas son obligatorias
+        if (($return_condition === 'roto' || $return_condition === 'incompleto') && empty($condition_notes)) {
+            $conn->rollback();
+            json_out(false, 'Debe especificar qué está roto o qué falta en los comentarios.');
+        }
+
+        // Si las notas están vacías, usar NULL
+        if (empty($condition_notes)) {
+            $condition_notes = null;
         }
 
         // 1) actualizar reserva + returned_at
@@ -127,16 +149,15 @@ try {
         }
         $updItem->close();
 
-        // 3) registrar en historial returns
+        // 3) registrar en historial returns CON CONDICIÓN
         $admin_id = (int)($user['id'] ?? 0);
-        $notes = "Devolución confirmada por Admin";
 
         $insHist = $conn->prepare("
             INSERT INTO returns
-            (reservation_id, item_id, dept_id, quantity, notes, returned_at, handled_by)
-            VALUES (?, ?, ?, ?, ?, NOW(), ?)
+            (reservation_id, item_id, dept_id, quantity, return_condition, condition_notes, returned_at, handled_by)
+            VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)
         ");
-        $insHist->bind_param("iiiisi", $res_id, $item_id, $res_dept, $qty, $notes, $admin_id);
+        $insHist->bind_param("iiiissi", $res_id, $item_id, $res_dept, $qty, $return_condition, $condition_notes, $admin_id);
         if (!$insHist->execute()) {
             $err = $conn->error;
             $insHist->close();
@@ -160,12 +181,24 @@ try {
 
         $conn->commit();
 
-        json_out(true, 'Devolución confirmada y stock actualizado.', [
+        // Mensaje personalizado según condición
+        $msg = 'Devolución confirmada y stock actualizado.';
+        if ($return_condition === 'roto') {
+            $msg = 'Devolución confirmada. ⚠️ Artículos reportados como rotos/dañados.';
+        } elseif ($return_condition === 'incompleto') {
+            $msg = 'Devolución confirmada. ⚠️ Devolución incompleta registrada.';
+        } else {
+            $msg = 'Devolución confirmada. ✅ Artículos en buen estado.';
+        }
+
+        json_out(true, $msg, [
             'reservation_id' => $res_id,
             'status' => 'finalizado',
             'returned_at' => $r2['returned_at'] ?? null,
             'item_id' => $item_id,
-            'available_quantity' => isset($i2['available_quantity']) ? (int)$i2['available_quantity'] : null
+            'available_quantity' => isset($i2['available_quantity']) ? (int)$i2['available_quantity'] : null,
+            'return_condition' => $return_condition,
+            'condition_notes' => $condition_notes
         ]);
     }
 
