@@ -8,7 +8,7 @@ function getCelebrationStyle($name) {
     if (strpos($n, 'año nuevo') !== false || strpos($n, 'new year') !== false) return ['icon' => 'fa-champagne-glasses', 'color' => 'bg-gold'];
     if (strpos($n, 'halloween') !== false || strpos($n, 'muertos') !== false) return ['icon' => 'fa-ghost', 'color' => 'bg-halloween-orange'];
     if (strpos($n, 'independencia') !== false || strpos($n, 'patria') !== false || strpos($n, 'septiembre') !== false) return ['icon' => 'fa-flag', 'color' => 'bg-patriotic-green'];
-    if (strpos($n, 'amor') !== false || strpos($n, 'san valentin') !== false || strpos($n, 'amistad') !== false) return ['icon' => 'fa-heart', 'color' => 'bg-love-pink'];
+    if (strpos($n, 'amor') !== false || strpos($n, 'valentin') !== false || strpos($n, 'amistad') !== false) return ['icon' => 'fa-heart', 'color' => 'bg-love-pink'];
     if (strpos($n, 'madre') !== false || strpos($n, 'padre') !== false) return ['icon' => 'fa-gift', 'color' => 'bg-purple'];
     if (strpos($n, 'primavera') !== false || strpos($n, 'pascua') !== false) return ['icon' => 'fa-sun', 'color' => 'bg-spring-yellow'];
     return ['icon' => 'fa-calendar-star', 'color' => 'bg-primary-soft'];
@@ -24,9 +24,7 @@ function getCelebrationStyle($name) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
         rel="stylesheet">
-
     <style>
-    /* (Mismos estilos que departments.php para consistencia) */
     :root {
         --body-bg: #f8fafc;
         --text-dark: #0f172a;
@@ -40,7 +38,6 @@ function getCelebrationStyle($name) {
         color: var(--text-dark);
     }
 
-    /* Contenedor Principal */
     .card-modern {
         background: #ffffff;
         border: none;
@@ -58,7 +55,6 @@ function getCelebrationStyle($name) {
         align-items: center;
     }
 
-    /* Iconos Dinámicos */
     .icon-box {
         width: 52px;
         height: 52px;
@@ -74,7 +70,78 @@ function getCelebrationStyle($name) {
         transform: scale(1.1) rotate(5deg);
     }
 
-    /* Variantes de Color */
+    /* Toggle Switch Mejorado */
+    .toggle-switch {
+        position: relative;
+        width: 56px;
+        height: 28px;
+        margin-right: 12px;
+    }
+
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #cbd5e1;
+        transition: all 0.3s;
+        border-radius: 50px;
+    }
+
+    .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 20px;
+        width: 20px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: all 0.3s;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    input:checked+.toggle-slider {
+        background-color: #10b981;
+    }
+
+    input:checked+.toggle-slider:before {
+        transform: translateX(28px);
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0.4rem 0.9rem;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .status-badge.active {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+
+    .status-badge.inactive {
+        background-color: #f1f5f9;
+        color: #64748b;
+    }
+
+    .status-badge i {
+        font-size: 0.7rem;
+    }
+
+    /* Colores de celebraciones */
     .bg-christmas-red {
         background: #ffe4e6;
         color: #e11d48;
@@ -115,7 +182,6 @@ function getCelebrationStyle($name) {
         color: #0284c7;
     }
 
-    /* Tabla */
     .table-modern {
         width: 100%;
         border-collapse: separate;
@@ -139,10 +205,6 @@ function getCelebrationStyle($name) {
         border-bottom: 1px solid #f8fafc;
     }
 
-    .table-modern tr:last-child td {
-        border-bottom: none;
-    }
-
     .dept-row {
         transition: background-color 0.2s ease;
     }
@@ -158,11 +220,11 @@ function getCelebrationStyle($name) {
         margin-bottom: 0;
     }
 
-    /* Botones */
     .btn-action-group {
         display: flex;
         gap: 8px;
         justify-content: flex-end;
+        align-items: center;
     }
 
     .btn-circle {
@@ -199,7 +261,6 @@ function getCelebrationStyle($name) {
         transform: translateY(-2px);
     }
 
-    /* Botón Agregar */
     .btn-add-custom {
         background: linear-gradient(135deg, #10b981 0%, #059669 100%);
         color: white;
@@ -218,121 +279,26 @@ function getCelebrationStyle($name) {
         color: white;
     }
 
-    /* Modal Styles */
-    .modal-content {
-        border-radius: 24px;
-        border: none;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-        overflow: hidden;
+    /* Toast de notificación */
+    .toast-custom {
+        position: fixed;
+        top: 100px;
+        right: 20px;
+        z-index: 9999;
+        min-width: 300px;
+        animation: slideIn 0.3s ease;
     }
 
-    .modal-header-custom {
-        padding: 2rem 2rem 0 2rem;
-        border: none;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        position: relative;
-    }
-
-    .btn-close-custom {
-        position: absolute;
-        top: 1.5rem;
-        right: 1.5rem;
-        z-index: 10;
-    }
-
-    .modal-icon-circle {
-        width: 80px;
-        height: 80px;
-        background-color: #ecfdf5;
-        color: #10b981;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 2.5rem;
-        margin-bottom: 1rem;
-        animation: pulse-soft 2s infinite;
-    }
-
-    .modal-icon-circle.warning {
-        background-color: #fffbeb;
-        color: #f59e0b;
-    }
-
-    @keyframes pulse-soft {
-        0% {
-            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.2);
+    @keyframes slideIn {
+        from {
+            transform: translateX(400px);
+            opacity: 0;
         }
 
-        70% {
-            box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+        to {
+            transform: translateX(0);
+            opacity: 1;
         }
-
-        100% {
-            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-        }
-    }
-
-    .modal-title-custom {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: #0f172a;
-        margin-bottom: 0.5rem;
-    }
-
-    .modal-subtitle {
-        color: #64748b;
-        font-size: 0.9rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .modal-body-custom {
-        padding: 0 2.5rem 2.5rem 2.5rem;
-    }
-
-    .form-floating>.form-control {
-        border-radius: 12px;
-        border: 2px solid #e2e8f0;
-    }
-
-    .form-floating>.form-control:focus {
-        border-color: #10b981;
-        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
-    }
-
-    .form-control.edit-input:focus {
-        border-color: #f59e0b;
-        box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.1);
-    }
-
-    .form-floating>label {
-        color: #94a3b8;
-    }
-
-    .btn-save-modal {
-        width: 100%;
-        background-color: #10b981;
-        color: white;
-        padding: 1rem;
-        border-radius: 12px;
-        font-weight: 700;
-        border: none;
-        transition: all 0.3s;
-    }
-
-    .btn-save-modal:hover {
-        background-color: #059669;
-        transform: translateY(-2px);
-    }
-
-    .btn-save-modal.warning {
-        background-color: #f59e0b;
-    }
-
-    .btn-save-modal.warning:hover {
-        background-color: #d97706;
     }
     </style>
 </head>
@@ -340,13 +306,28 @@ function getCelebrationStyle($name) {
 <body>
     <?php include("navbar.php"); ?>
 
-    <div class="container py-4">
+    <!-- Toast de notificación -->
+    <?php if (isset($_SESSION['success']) || isset($_SESSION['error'])): ?>
+    <div class="toast-custom">
+        <div class="alert alert-<?= isset($_SESSION['success']) ? 'success' : 'danger' ?> alert-dismissible fade show shadow-lg"
+            role="alert">
+            <i class="fas fa-<?= isset($_SESSION['success']) ? 'check-circle' : 'exclamation-circle' ?> me-2"></i>
+            <strong><?= $_SESSION['success'] ?? $_SESSION['error'] ?></strong>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    </div>
+    <?php 
+        unset($_SESSION['success'], $_SESSION['error']); 
+    endif; 
+    ?>
 
+    <div class="container py-4">
         <div class="card-modern">
             <div class="card-header-modern">
                 <div>
                     <h2 class="fw-bold mb-1"><i class="fa-solid fa-gift me-2 text-primary"></i>Celebraciones</h2>
-                    <p class="text-gray mb-0 small">Administra los eventos y festividades.</p>
+                    <p class="text-gray mb-0 small">Administra los eventos y festividades. Solo una puede estar activa.
+                    </p>
                 </div>
 
                 <?php if(current_user()['role'] === 'admin'): ?>
@@ -361,7 +342,8 @@ function getCelebrationStyle($name) {
                 <table class="table-modern">
                     <thead>
                         <tr>
-                            <th>Nombre de la Festividad</th>
+                            <th>Festividad</th>
+                            <th>Estado</th>
                             <?php if(current_user()['role'] === 'admin'): ?>
                             <th class="text-end">Acciones</th>
                             <?php endif; ?>
@@ -369,11 +351,12 @@ function getCelebrationStyle($name) {
                     </thead>
                     <tbody>
                         <?php
-                $res = $conn->query("SELECT * FROM celebrations ORDER BY name");
+                $res = $conn->query("SELECT * FROM celebrations ORDER BY is_active DESC, name");
                 if ($res && $res->num_rows > 0):
                     while ($row = $res->fetch_assoc()):
                         $id = (int)$row['id'];
                         $name = htmlspecialchars($row['name']);
+                        $is_active = (int)$row['is_active'];
                         $style = getCelebrationStyle($name);
                 ?>
                         <tr class="dept-row">
@@ -382,15 +365,32 @@ function getCelebrationStyle($name) {
                                     <div class="icon-box me-3 <?= $style['color'] ?>">
                                         <i class="fa-solid <?= $style['icon'] ?>"></i>
                                     </div>
-                                    <div>
-                                        <div class="dept-name-text"><?= $name ?></div>
-                                    </div>
+                                    <div class="dept-name-text"><?= $name ?></div>
                                 </div>
+                            </td>
+
+                            <td>
+                                <?php if ($is_active): ?>
+                                <span class="status-badge active">
+                                    <i class="fas fa-circle"></i> ACTIVA
+                                </span>
+                                <?php else: ?>
+                                <span class="status-badge inactive">
+                                    <i class="far fa-circle"></i> Inactiva
+                                </span>
+                                <?php endif; ?>
                             </td>
 
                             <?php if(current_user()['role'] === 'admin'): ?>
                             <td class="text-end">
                                 <div class="btn-action-group">
+                                    <!-- Toggle Switch -->
+                                    <label class="toggle-switch" title="<?= $is_active ? 'Desactivar' : 'Activar' ?>">
+                                        <input type="checkbox" class="toggle-celebration" data-id="<?= $id ?>"
+                                            <?= $is_active ? 'checked' : '' ?>>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+
                                     <button class="btn-circle btn-edit-modern" type="button" data-bs-toggle="modal"
                                         data-bs-target="#editCelebrationModal" data-id="<?= $id ?>"
                                         data-name="<?= $name ?>" title="Editar">
@@ -409,7 +409,7 @@ function getCelebrationStyle($name) {
                         <?php endwhile; 
                 else: ?>
                         <tr>
-                            <td colspan="2" class="text-center py-5">
+                            <td colspan="3" class="text-center py-5">
                                 <div class="opacity-50">
                                     <i class="fa-solid fa-calendar-xmark fa-3x mb-3 text-secondary"></i>
                                     <p class="h6 text-muted">No hay celebraciones registradas.</p>
@@ -423,70 +423,56 @@ function getCelebrationStyle($name) {
         </div>
     </div>
 
-    <div class="modal fade" id="addCelebrationModal" tabindex="-1" aria-hidden="true">
+    <!-- Modal Agregar -->
+    <div class="modal fade" id="addCelebrationModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <form method="POST" action="celebration_action.php?action=create" class="modal-content">
-
-                <div class="modal-header-custom">
-                    <button type="button" class="btn-close btn-close-custom" data-bs-dismiss="modal"
-                        aria-label="Cerrar"></button>
-                    <div class="modal-icon-circle">
-                        <i class="fa-solid fa-calendar-plus"></i>
-                    </div>
-                    <h3 class="modal-title-custom">Nueva Celebración</h3>
-                    <p class="modal-subtitle">Registra un nuevo evento festivo.</p>
+                <div class="modal-header border-0 pb-0">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-
-                <div class="modal-body-custom">
-                    <div class="form-floating mb-4">
-                        <input type="text" name="name" class="form-control" id="addNameInput"
-                            placeholder="Ej: Navidad 2025" required>
-                        <label for="addNameInput">Nombre del Evento</label>
+                <div class="modal-body text-center pt-0 pb-4">
+                    <div class="mb-3 text-success opacity-75">
+                        <i class="fa-solid fa-calendar-plus fa-4x"></i>
                     </div>
+                    <h4 class="fw-bold mb-2">Nueva Celebración</h4>
+                    <p class="text-muted mb-4">Registra un nuevo evento festivo.</p>
 
-                    <button type="submit" class="btn-save-modal">
-                        Crear Celebración <i class="fas fa-arrow-right ms-2"></i>
-                    </button>
+                    <input type="text" name="name" class="form-control mb-3" placeholder="Ej: San Valentín 2025"
+                        required>
+                    <button type="submit" class="btn btn-success w-100 fw-bold">Crear Celebración</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <div class="modal fade" id="editCelebrationModal" tabindex="-1" aria-hidden="true">
+    <!-- Modal Editar -->
+    <div class="modal fade" id="editCelebrationModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
-            <form method="POST" action="celebration_action.php?action=edit" class="modal-content"
-                id="editCelebrationForm">
-
-                <div class="modal-header-custom">
-                    <button type="button" class="btn-close btn-close-custom" data-bs-dismiss="modal"
-                        aria-label="Cerrar"></button>
-                    <div class="modal-icon-circle warning">
-                        <i class="fa-solid fa-pen-to-square"></i>
-                    </div>
-                    <h3 class="modal-title-custom">Editar Celebración</h3>
-                    <p class="modal-subtitle">Modifica el nombre del evento seleccionado.</p>
+            <form method="POST" action="celebration_action.php?action=edit" class="modal-content">
+                <div class="modal-header border-0 pb-0">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-
-                <div class="modal-body-custom">
-                    <input type="hidden" name="id" id="edit_celebration_id">
-                    <div class="form-floating mb-4">
-                        <input type="text" name="name" id="edit_celebration_name" class="form-control edit-input"
-                            placeholder="Nombre" required>
-                        <label for="edit_celebration_name">Nombre del Evento</label>
+                <div class="modal-body text-center pt-0 pb-4">
+                    <div class="mb-3 text-warning opacity-75">
+                        <i class="fa-solid fa-pen-to-square fa-4x"></i>
                     </div>
-                    <button type="submit" class="btn-save-modal warning">
-                        Guardar Cambios <i class="fas fa-check ms-2"></i>
-                    </button>
+                    <h4 class="fw-bold mb-2">Editar Celebración</h4>
+                    <p class="text-muted mb-4">Modifica el nombre del evento.</p>
+
+                    <input type="hidden" name="id" id="edit_celebration_id">
+                    <input type="text" name="name" id="edit_celebration_name" class="form-control mb-3" required>
+                    <button type="submit" class="btn btn-warning w-100 fw-bold">Guardar Cambios</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
+    <!-- Modal Eliminar -->
+    <div class="modal fade" id="deleteConfirmModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <form method="POST" action="celebration_action.php?action=delete" class="modal-content">
                 <div class="modal-header border-0 pb-0">
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body text-center pt-0 pb-4">
                     <div class="mb-3 text-danger opacity-75">
@@ -494,13 +480,12 @@ function getCelebrationStyle($name) {
                     </div>
                     <h4 class="fw-bold mb-2">¿Estás seguro?</h4>
                     <p class="text-muted mb-4">
-                        Vas a eliminar la celebración <strong id="delete_celeb_name" class="text-dark"></strong>.<br>
+                        Vas a eliminar <strong id="delete_celeb_name" class="text-dark"></strong>.<br>
                         Esta acción no se puede deshacer.
                     </p>
                     <input type="hidden" name="id" id="delete_celeb_id">
                     <div class="d-flex justify-content-center gap-2">
-                        <button type="button" class="btn btn-light px-4 fw-medium"
-                            data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancelar</button>
                         <button type="submit" class="btn btn-danger px-4 fw-bold">Sí, eliminar</button>
                     </div>
                 </div>
@@ -510,31 +495,55 @@ function getCelebrationStyle($name) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-    // Rellenar modal editar
-    var editModal = document.getElementById('editCelebrationModal');
-    editModal.addEventListener('show.bs.modal', function(event) {
-        var button = event.relatedTarget;
-        var id = button.getAttribute('data-id');
-        var name = button.getAttribute('data-name');
+    // Toggle activar/desactivar celebración
+    document.querySelectorAll('.toggle-celebration').forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            const id = this.dataset.id;
+            const isActive = this.checked ? 1 : 0;
 
-        document.getElementById('edit_celebration_id').value = id;
-        document.getElementById('edit_celebration_name').value = name;
-
-        setTimeout(function() {
-            document.getElementById('edit_celebration_name').focus();
-        }, 400);
+            fetch('celebration_action.php?action=toggle_active', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: `id=${id}&is_active=${isActive}`
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload(); // Recargar para actualizar el tema
+                    } else {
+                        alert('Error: ' + data.message);
+                        this.checked = !this.checked;
+                    }
+                })
+                .catch(() => {
+                    alert('Error de conexión');
+                    this.checked = !this.checked;
+                });
+        });
     });
 
-    // Rellenar modal eliminar
-    var deleteModal = document.getElementById('deleteConfirmModal');
-    deleteModal.addEventListener('show.bs.modal', function(event) {
-        var button = event.relatedTarget;
-        var id = button.getAttribute('data-id');
-        var name = button.getAttribute('data-name');
-
-        document.getElementById('delete_celeb_id').value = id;
-        document.getElementById('delete_celeb_name').textContent = '«' + name + '»';
+    // Modal editar
+    document.getElementById('editCelebrationModal').addEventListener('show.bs.modal', function(e) {
+        const btn = e.relatedTarget;
+        document.getElementById('edit_celebration_id').value = btn.dataset.id;
+        document.getElementById('edit_celebration_name').value = btn.dataset.name;
     });
+
+    // Modal eliminar
+    document.getElementById('deleteConfirmModal').addEventListener('show.bs.modal', function(e) {
+        const btn = e.relatedTarget;
+        document.getElementById('delete_celeb_id').value = btn.dataset.id;
+        document.getElementById('delete_celeb_name').textContent = '«' + btn.dataset.name + '»';
+    });
+
+    // Auto-ocultar toast después de 5 segundos
+    setTimeout(() => {
+        document.querySelectorAll('.toast-custom .alert').forEach(alert => {
+            bootstrap.Alert.getOrCreateInstance(alert).close();
+        });
+    }, 5000);
     </script>
     <?php include("footer.php"); ?>
 </body>

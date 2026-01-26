@@ -1,14 +1,26 @@
 <?php
 require_once __DIR__ . '/../config/auth.php';
 $user = is_logged_in() ? current_user() : null;
+
+// Si $tema no existe, cargar valores por defecto (para páginas que no usen temas)
+if (!isset($tema)) {
+    $tema = [
+        'nav_title' => 'Gestión',
+        'primary_color' => '#334155',
+        'dark_color' => '#1e293b',
+        'accent_color' => '#2563eb'
+    ];
+}
 ?>
 <style>
-/* === NAVBAR ESTILO "NOCHE DE PAZ" (Dark Forest & Gold) === */
+/* === NAVBAR DINÁMICO === */
 .navbar-custom {
-    background: linear-gradient(90deg, #022c22 0%, #14532d 100%);
+    background: linear-gradient(90deg,
+            <?=$tema['dark_color'] ?> 0%,
+            <?=$tema['primary_color'] ?> 100%);
     padding: 0.8rem 0;
     box-shadow: 0 4px 25px rgba(0, 0, 0, 0.25);
-    border-bottom: 2px solid #d97706;
+    border-bottom: 2px solid <?=$tema['accent_color'] ?>;
     position: fixed;
     top: 0;
     left: 0;
@@ -31,8 +43,8 @@ $user = is_logged_in() ? current_user() : null;
 
 .navbar-brand-custom i {
     font-size: 1.8rem;
-    color: #f4f1ebff;
-    filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.4));
+    color: <?=$tema['accent_color'] ?>;
+    filter: drop-shadow(0 0 8px <?=$tema['accent_color'] ?>66);
 }
 
 /* ENLACES */
@@ -53,25 +65,24 @@ $user = is_logged_in() ? current_user() : null;
 .nav-link-custom:hover,
 .nav-link-custom.active,
 .nav-link-custom[aria-expanded="true"] {
-    color: #f4f1ebff !important;
+    color: <?=$tema['accent_color'] ?> !important;
     background: rgba(255, 255, 255, 0.1);
     transform: translateY(-1px);
 }
 
 .nav-link-custom i {
-    color: #f4f1ebff
+    color: <?=$tema['accent_color'] ?>;
 }
 
 .nav-link-custom:hover i {
-    color: #f4f1ebff;
+    color: <?=$tema['accent_color'] ?>;
+    filter: brightness(1.2);
 }
 
 /* DROPDOWN MENU */
 .dropdown-menu-dark-custom {
-    background-color: #064e3b;
-    /* Fondo verde oscuro */
-    border: 1px solid #d97706;
-    /* Borde dorado */
+    background-color: <?=$tema['dark_color'] ?>;
+    border: 1px solid <?=$tema['accent_color'] ?>;
     border-radius: 12px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     padding: 0.5rem;
@@ -90,14 +101,14 @@ $user = is_logged_in() ? current_user() : null;
 
 .dropdown-item-custom:hover {
     background-color: rgba(255, 255, 255, 0.1);
-    color: #f4f1ebff;
+    color: <?=$tema['accent_color'] ?>;
     transform: translateX(5px);
 }
 
 .dropdown-item-custom i {
     width: 20px;
     text-align: center;
-    color: #f4f1ebff;
+    color: <?=$tema['accent_color'] ?>;
 }
 
 /* SECCIÓN USUARIO */
@@ -125,11 +136,11 @@ $user = is_logged_in() ? current_user() : null;
 }
 
 .user-welcome i {
-    color: #f4f1ebff;
+    color: <?=$tema['accent_color'] ?>;
 }
 
 .badge-admin {
-    background: #d97706;
+    background: <?=$tema['accent_color'] ?>;
     color: #fff;
     padding: 2px 6px;
     border-radius: 6px;
@@ -139,8 +150,8 @@ $user = is_logged_in() ? current_user() : null;
 
 /* BOTONES */
 .btn-logout {
-    background: #831818ff;
-    color: #fbfbfbff;
+    background: #dc2626;
+    color: #ffffff;
     border: 1px solid rgba(239, 68, 68, 0.4);
     padding: 0.5rem 1.2rem;
     border-radius: 20px;
@@ -154,14 +165,14 @@ $user = is_logged_in() ? current_user() : null;
 }
 
 .btn-logout:hover {
-    background: #dc2626;
+    background: #b91c1c;
     color: #ffffff;
-    border-color: #dc2626;
+    border-color: #b91c1c;
     box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
 }
 
 .btn-login {
-    background: #d97706;
+    background: <?=$tema['accent_color'] ?>;
     color: #fff;
     border: none;
     padding: 0.5rem 1.5rem;
@@ -174,18 +185,18 @@ $user = is_logged_in() ? current_user() : null;
 }
 
 .btn-login:hover {
-    background: #b45309;
+    background: <?=$tema['dark_color'] ?>;
     color: white;
 }
 
 /* MOVIL */
 .navbar-toggler-custom {
-    border: 1px solid #f4f1ebff;
+    border: 1px solid <?=$tema['accent_color'] ?>;
     padding: 5px 10px;
 }
 
 .navbar-toggler-icon-custom {
-    background-color: #f4f1ebff;
+    background-color: <?=$tema['accent_color'] ?>;
     height: 2px;
     width: 22px;
     display: block;
@@ -194,7 +205,7 @@ $user = is_logged_in() ? current_user() : null;
 
 .navbar-toggler-icon-custom::before,
 .navbar-toggler-icon-custom::after {
-    background-color: #f4f1ebff;
+    background-color: <?=$tema['accent_color'] ?>;
     height: 2px;
     width: 22px;
     position: absolute;
@@ -212,11 +223,11 @@ $user = is_logged_in() ? current_user() : null;
 
 @media (max-width: 991px) {
     .navbar-collapse {
-        background: #022c22;
+        background: <?=$tema['dark_color'] ?>;
         margin-top: 15px;
         padding: 1rem;
         border-radius: 10px;
-        border: 1px solid rgba(251, 191, 36, 0.2);
+        border: 1px solid <?=$tema['accent_color'] ?>33;
     }
 
     .user-section {
@@ -246,9 +257,10 @@ $user = is_logged_in() ? current_user() : null;
 
 <nav class="navbar navbar-expand-lg navbar-custom">
     <div class="container-fluid px-4">
+        <!-- LOGO DINÁMICO -->
         <a class="navbar-brand-custom" href="index.php">
-            <i class="fas fa-tree"></i>
-            <span>Navidad</span>
+            <i class="fas <?= $tema['hero_icon'] ?? 'fa-layer-group' ?>"></i>
+            <span><?= htmlspecialchars($tema['nav_title']) ?></span>
         </a>
 
         <button class="navbar-toggler navbar-toggler-custom" type="button" data-bs-toggle="collapse"
@@ -261,13 +273,15 @@ $user = is_logged_in() ? current_user() : null;
 
                 <li class="nav-item">
                     <a class="nav-link-custom" href="items.php">
-                        <i class="fas fa-gifts"></i><span>Adornos</span>
+                        <i class="fas <?= $tema['icon_adornos'] ?? 'fa-boxes-stacked' ?>"></i>
+                        <span>Artículos</span>
                     </a>
                 </li>
 
                 <li class="nav-item">
                     <a class="nav-link-custom" href="reservations.php">
-                        <i class="fas fa-bookmark"></i><span>Reservas</span>
+                        <i class="fas <?= $tema['icon_reservas'] ?? 'fa-clipboard-list' ?>"></i>
+                        <span>Reservas</span>
                     </a>
                 </li>
 
@@ -286,7 +300,7 @@ $user = is_logged_in() ? current_user() : null;
                         </li>
                         <li>
                             <a class="dropdown-item-custom" href="celebrations.php">
-                                <i class="fas fa-glass-cheers"></i> Celebraciones
+                                <i class="fas fa-gift"></i> Celebraciones
                             </a>
                         </li>
                         <li>

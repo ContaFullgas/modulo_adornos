@@ -1,3 +1,14 @@
+<?php
+// Si $tema no existe, cargar valores por defecto
+if (!isset($tema)) {
+    $tema = [
+        'primary_color' => '#334155',
+        'dark_color' => '#1e293b',
+        'accent_color' => '#2563eb'
+    ];
+}
+?>
+
 <footer class="footer-custom mt-auto">
     <div class="container text-center">
         <p class="mb-1">
@@ -11,48 +22,75 @@
 </footer>
 
 <style>
-/* Estilos del Footer para que combine con el Navbar */
+/* REPARACIÓN PRINCIPAL: Forzar al body a ocupar toda la pantalla */
+html,
+body {
+    height: 100%;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    /* Asegura que el cuerpo ocupe el alto de la ventana */
+}
+
+/* Footer Dinámico */
 .footer-custom {
-    /* Mismo gradiente que el Navbar */
-    background: linear-gradient(90deg, #022c22 0%, #14532d 100%);
+    background: linear-gradient(90deg,
+            <?=$tema['primary_color'] ?> 0%,
+            <?=$tema['dark_color'] ?> 100%);
     color: #e2e8f0;
-    /* Texto gris muy claro */
     padding: 2rem 0;
-    margin-top: 4rem !important;
-    /* Separación del contenido de arriba */
-    border-top: 3px solid #d97706;
-    /* Línea dorada superior */
+
+    /* CAMBIO CLAVE: margin-top: auto empuja el footer al fondo en contenedores flex */
+    margin-top: auto !important;
+
+    border-top: 3px solid <?=$tema['accent_color'] ?>;
     position: relative;
     z-index: 10;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
+    width: 100%;
 }
 
 .footer-custom strong {
     color: #ffffff;
 }
 
-/* Pequeña línea divisoria decorativa */
 .footer-divider {
     width: 50px;
     height: 2px;
-    background-color: #fbbf24;
-    /* Dorado */
+    background-color: <?=$tema['accent_color'] ?>;
     margin: 0.8rem auto;
-    opacity: 0.5;
+    opacity: 0.7;
     border-radius: 2px;
+    transition: all 0.3s ease;
 }
 
 .credits-text {
-    color: #86efac;
-    /* Verde claro sutil para el departamento */
+    color: rgba(255, 255, 255, 0.7);
     font-size: 0.85rem;
     letter-spacing: 0.5px;
-    opacity: 0.8;
 }
 
 .credits-text strong {
-    color: #fbbf24;
-    /* Dorado para el nombre del depto */
-    font-weight: 700;
+    color: <?=$tema['accent_color'] ?>;
+    filter: brightness(1.2);
+}
+
+.credits-text i {
+    color: <?=$tema['accent_color'] ?>;
+}
+
+.footer-custom:hover .footer-divider {
+    width: 80px;
+    opacity: 1;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .footer-custom {
+        padding: 1.5rem 1rem;
+    }
 }
 </style>

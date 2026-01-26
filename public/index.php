@@ -1,35 +1,34 @@
-<?php include("../config/auth.php"); require_login(); ?>
+<?php 
+include("../config/auth.php"); 
+require_login(); 
+require_once __DIR__ . '/temas.php';
+?>
 <!DOCTYPE html>
 <html lang="es">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Navidad - Dashboard</title>
+    <title><?= htmlspecialchars($tema['titulo_pestana']) ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
 
     <style>
     :root {
-        /* Paleta Verde & Dorado */
-        --bg-body: #fdfcf8;
-        /* Crema muy suave */
-        --text-dark: #064e3b;
-        /* Verde muy oscuro para textos */
+        /* Variables dinámicas del tema activo */
+        --bg-body: <?=$tema['bg_body'] ?>;
+        --text-dark: <?=$tema['text_dark'] ?>;
         --text-light: #ecfdf5;
 
-        --primary-green: #059669;
-        /* Esmeralda Vibrante */
-        --dark-green: #065f46;
-        /* Pino Profundo */
-
-        --accent-gold: #d97706;
-        /* Dorado */
-        --accent-gold-light: #fcd34d;
+        --primary-color: <?=$tema['primary_color'] ?>;
+        --dark-color: <?=$tema['dark_color'] ?>;
+        --accent-color: <?=$tema['accent_color'] ?>;
 
         --card-surface: #ffffff;
         --card-border: #f0fdf4;
+
+        --dot-color: <?=$tema['dot_color'] ?>;
     }
 
     * {
@@ -43,8 +42,8 @@
         min-height: 100vh;
         font-family: 'Outfit', sans-serif;
         color: var(--text-dark);
-        /* Patrón de fondo muy sutil */
-        background-image: radial-gradient(#d1fae5 0.5px, transparent 0.5px);
+        /* Patrón de fondo dinámico */
+        background-image: radial-gradient(var(--dot-color) 0.5px, transparent 0.5px);
         background-size: 20px 20px;
     }
 
@@ -54,18 +53,16 @@
         margin: 0 auto;
         padding: 2rem;
         padding-top: 130px;
-        /* Espacio para el Navbar */
         position: relative;
         z-index: 2;
     }
 
-    /* Partículas de nieve (Dorado suave) */
-    .snowflake {
+    /* Partículas dinámicas (nieve/corazones/etc) */
+    .celebration-particle {
         position: fixed;
         top: -10px;
         z-index: 1;
-        color: #fbbf24;
-        /* Copos dorados */
+        color: var(--dot-color);
         font-size: 1em;
         opacity: 0.6;
         animation: fall linear infinite;
@@ -78,16 +75,16 @@
         }
     }
 
-    /* --- HERO SECTION --- */
+    /* --- HERO SECTION DINÁMICO --- */
     .hero-card {
-        background: linear-gradient(135deg, var(--dark-green) 0%, var(--primary-green) 100%);
+        background: <?=$tema['hero_gradient'] ?>;
         border-radius: 30px;
         padding: 4rem 3rem;
         margin-bottom: 3.5rem;
         color: white;
         position: relative;
         overflow: hidden;
-        box-shadow: 0 20px 40px -10px rgba(6, 95, 70, 0.4);
+        box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -131,8 +128,9 @@
     }
 
     .hero-highlight {
-        color: var(--accent-gold-light);
-        /* Texto dorado */
+        color: var(--accent-color);
+        filter: brightness(1.3);
+        text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
     }
 
     .hero-subtitle {
@@ -141,7 +139,7 @@
         font-weight: 300;
     }
 
-    /* Icono gigante decorativo */
+    /* Icono gigante decorativo dinámico */
     .hero-icon-bg {
         font-size: 10rem;
         color: rgba(255, 255, 255, 0.1);
@@ -172,22 +170,13 @@
         justify-content: space-between;
     }
 
-    /* Borde superior de color */
-    .action-card::top {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 6px;
+    /* Borde superior de color dinámico */
+    .card-primary {
+        border-top: 6px solid var(--primary-color);
     }
 
-    .card-green {
-        border-top: 6px solid var(--primary-green);
-    }
-
-    .card-gold {
-        border-top: 6px solid var(--accent-gold);
+    .card-accent {
+        border-top: 6px solid var(--accent-color);
     }
 
     .action-card:hover {
@@ -206,14 +195,14 @@
         margin-bottom: 1.5rem;
     }
 
-    .card-green .card-icon {
-        background: #ecfdf5;
-        color: var(--primary-green);
+    .card-primary .card-icon {
+        background: color-mix(in srgb, var(--primary-color) 15%, white);
+        color: var(--primary-color);
     }
 
-    .card-gold .card-icon {
-        background: #fffbeb;
-        color: var(--accent-gold);
+    .card-accent .card-icon {
+        background: color-mix(in srgb, var(--accent-color) 15%, white);
+        color: var(--accent-color);
     }
 
     .card-title {
@@ -229,7 +218,7 @@
         line-height: 1.6;
     }
 
-    /* Botones Elegantes */
+    /* Botones Dinámicos */
     .btn-elegant {
         display: inline-flex;
         align-items: center;
@@ -242,26 +231,26 @@
         width: 100%;
     }
 
-    .btn-green {
-        background: var(--primary-green);
+    .btn-primary-theme {
+        background: var(--primary-color);
         color: white;
-        box-shadow: 0 4px 15px rgba(5, 150, 105, 0.3);
+        box-shadow: 0 4px 15px color-mix(in srgb, var(--primary-color) 30%, transparent);
     }
 
-    .btn-green:hover {
-        background: var(--dark-green);
+    .btn-primary-theme:hover {
+        background: var(--dark-color);
         color: white;
         transform: scale(1.02);
     }
 
-    .btn-gold {
-        background: var(--accent-gold);
+    .btn-accent-theme {
+        background: var(--accent-color);
         color: white;
-        box-shadow: 0 4px 15px rgba(217, 119, 6, 0.3);
+        box-shadow: 0 4px 15px color-mix(in srgb, var(--accent-color) 30%, transparent);
     }
 
-    .btn-gold:hover {
-        background: #b45309;
+    .btn-accent-theme:hover {
+        background: color-mix(in srgb, var(--accent-color) 80%, black);
         color: white;
         transform: scale(1.02);
     }
@@ -288,44 +277,47 @@
 
     <?php include("navbar.php"); ?>
 
-    <div id="gold-snow"></div>
+    <div id="celebration-particles"></div>
 
     <div class="container-dashboard">
 
+        <!-- HERO DINÁMICO -->
         <div class="hero-card">
             <div class="hero-content">
                 <h1 class="hero-title">
-                    Decora tu mundo a <span class="hero-highlight">tu manera</span>
+                    <?= $tema['hero_title'] ?>
                 </h1>
                 <p class="hero-subtitle">
-                    Selecciona tus decoraciones favoritas
+                    <?= htmlspecialchars($tema['hero_subtitle']) ?>
                 </p>
             </div>
-            <i class="fas fa-tree hero-icon-bg"></i>
+            <i class="fas <?= $tema['hero_icon'] ?> hero-icon-bg"></i>
         </div>
 
         <div class="cards-container">
 
-            <div class="action-card card-green">
+            <!-- CARD 1: Inventario (Adornos) -->
+            <div class="action-card card-primary">
                 <div>
                     <div class="card-icon">
-                        <i class="fas fa-box-open"></i>
+                        <i class="fas <?= $tema['icon_adornos'] ?>"></i>
                     </div>
                     <h2 class="card-title">Inventario</h2>
                     <p class="card-text">
-                        Administra el catálogo de adornos. Visualiza existencias, agrega novedades y mantén tu colección
-                        al día.
+                        Administra el catálogo de artículos. Visualiza existencias, agrega novedades y mantén tu
+                        colección al día.
                     </p>
                 </div>
-                <a href="items.php" class="btn-elegant btn-green">
-                    Ver Adornos <i class="fas fa-arrow-right ms-2"></i>
+                <a href="items.php" class="btn-elegant btn-primary-theme">
+                    Ver Artículos <i class="fas fa-arrow-right ms-2"></i>
                 </a>
             </div>
 
-            <div class="action-card card-gold">
+            <!-- CARD 2: Reservas -->
+            <div class="action-card card-accent">
                 <div>
                     <div class="card-icon">
-                        <i class="fas fa-star"></i>
+                        <i class="fas <?= $tema['icon_reservas'] ?>"></i>
                     </div>
                     <h2 class="card-title">Reservas</h2>
                     <p class="card-text">
@@ -333,7 +325,7 @@
                         devoluciones fácilmente.
                     </p>
                 </div>
-                <a href="reservations.php" class="btn-elegant btn-gold">
+                <a href="reservations.php" class="btn-elegant btn-accent-theme">
                     Gestionar Reservas <i class="fas fa-arrow-right ms-2"></i>
                 </a>
             </div>
@@ -342,23 +334,25 @@
     </div>
 
     <script>
-    // Efecto de nieve dorada
-    function createGoldSnow() {
-        const container = document.getElementById('gold-snow');
-        const symbols = ['✦', '•', '⋆'];
+    // Crear partículas dinámicas según el tema activo
+    function createCelebrationParticles() {
+        const container = document.getElementById('celebration-particles');
+
+        // Símbolos dinámicos desde PHP
+        const symbols = <?= json_encode($tema['particle_symbols']) ?>;
 
         for (let i = 0; i < 30; i++) {
-            const flake = document.createElement('div');
-            flake.classList.add('snowflake');
-            flake.innerHTML = symbols[Math.floor(Math.random() * symbols.length)];
-            flake.style.left = Math.random() * 100 + '%';
-            flake.style.animationDuration = (Math.random() * 5 + 8) + 's';
-            flake.style.animationDelay = Math.random() * 5 + 's';
-            flake.style.fontSize = (Math.random() * 15 + 10) + 'px';
-            container.appendChild(flake);
+            const particle = document.createElement('div');
+            particle.classList.add('celebration-particle');
+            particle.innerHTML = symbols[Math.floor(Math.random() * symbols.length)];
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.animationDuration = (Math.random() * 5 + 8) + 's';
+            particle.style.animationDelay = Math.random() * 5 + 's';
+            particle.style.fontSize = (Math.random() * 15 + 10) + 'px';
+            container.appendChild(particle);
         }
     }
-    createGoldSnow();
+    createCelebrationParticles();
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
